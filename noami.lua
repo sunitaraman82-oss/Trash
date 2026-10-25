@@ -1,5 +1,3 @@
--- deoffed by mani
-
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
@@ -764,10 +762,9 @@ local function v101()
 
 	pcall(function()
 		if debug and debug.getinfo and debug.getinfo(1).source:find("@@") then
-			v118 = v119
-			table.insert(v119, "Protected Executor")
-		end
-
+    v118 = v119          
+    table.insert(v119, "Protected Executor")
+end
 		if type(writefile) ~= "function" then
 			return
 		end
@@ -3007,7 +3004,9 @@ Workspace(function()
 	end
 
 	v347()
-	v341:Destroy()
+	if Circle then
+    Circle:Destroy()
+		end
 	CreateMainUI()
 end)
 print("Pulto Hub loaded Press Ins to Open/Close")

@@ -685,3 +685,20 @@ end})
 SaveManager:SetLibrary(Library)
 ThemeManager:SetLibrary(Library)
 ThemeManager:SetFolder("UltimateRivals")
+SaveManager:SetFolder("UltimateRivals/configs")
+SaveManager:BuildConfigSection(Tabs["UI Settings"])
+ThemeManager:ApplyToTab(Tabs["UI Settings"])
+
+Library:Notify({Title="Ultimate Rivals", Description="Loaded (perf rewrite).", Time=5})
+
+_G.__NoamiUnload = function()
+    for _, c in ipairs(Conn) do pcall(function() c:Disconnect() end) end
+    table.clear(Conn)
+    for _, d in ipairs(Draw) do pcall(function() d:Remove() end) end
+    table.clear(Draw)
+    if EspGui and EspGui.Parent then EspGui:Destroy() end
+    for plr in pairs(EspCache) do removeEsp(plr) end
+    restoreHitboxes()
+    FovCircle.Visible = false
+    _G.__NoamiUnload = nil
+end

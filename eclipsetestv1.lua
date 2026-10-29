@@ -46,7 +46,6 @@ do
     Env.CAN_HOOK    = (Env.hookfunc and Env.newcc) ~= nil
     Env.CAN_META    = (Env.hookmeta and Env.getnamecall) ~= nil
     Env.CAN_CONST   = (Env.getconst and Env.setconst) ~= nil
-    Env.CAN_PROTOS  = (Env.getproto and Env.getprotos) ~= nil
     Env.CAN_FS      = (Env.writefile and Env.readfile and Env.isfile and Env.makefolder) ~= nil
 
     function Env.withIdentity(level, fn)
@@ -128,13 +127,14 @@ local Trove = {}
 Trove.__index = Trove
 function Trove.new(name) return setmetatable({ _name = name, _items = {} }, Trove) end
 local function cleanItem(o)
-    local t = typeof(o)
-    if t == "RBXScriptConnection" then pcall(function() o:Disconnect() end)
-    elseif t == "Instance" then pcall(function() o:Destroy() end)
-    elseif type(o) == "function" then pcall(o)
-    elseif type(o) == "table" then
+    local t = type(o)
+    if t == "userdata" then 
+        pcall(function() o:Disconnect() end)
+    elseif t == "table" then
         if type(o.Destroy) == "function" then pcall(o.Destroy, o)
         elseif type(o.Disconnect) == "function" then pcall(o.Disconnect, o) end
+    elseif t == "function" then 
+        pcall(o) 
     end
 end
 function Trove:Add(item) table.insert(self._items, item) return item end
@@ -217,21 +217,8 @@ local Hooks = {
 }
 
 function Hooks.installSetmetatableBypass()
-    if not (Env.CAN_HOOK and Env.getrenv) then return false, "requires hookfunction+getrenv" end
-    local ok, err = pcall(function()
-        local original = Env.getrenv().setmetatable
-        local wrapped = Env.hookfunc(original, Env.newcc(function(t, mt)
-            if type(mt) == "table" and rawget(mt, "__mode") == "kv"
-                and type(t) == "table" and rawlen(t) == 4
-                and type(rawget(t, 1)) == "table" and rawget(t, 2) == 1
-                and rawget(t, 3) == "String" and type(rawget(t, 4)) == "userdata" then
-                return original({1, 2, 3}, {})
-            end
-            return original(t, mt)
-        end))
-        Hooks._restores.setmt = { original = original, wrapped = wrapped }
-    end)
-    return ok, err
+    -- Temporarily disabled for stability. Metamethod hooks still work.
+    return false, "bypassed for stability"
 end
 
 function Hooks.hookMeta(object, method, handler)
@@ -260,7 +247,6 @@ function Hooks.teardown()
     for i = #Hooks._consts, 1, -1 do pcall(Env.setconst, Hooks._consts[i].fn, Hooks._consts[i].index, Hooks._consts[i].old) end
     for i = #Hooks._metahooks, 1, -1 do pcall(function() Env.hookmeta(Hooks._metahooks[i].object, Hooks._metahooks[i].method, Hooks._metahooks[i].original) end) end
     for i = #Hooks._restores, 1, -1 do pcall(function() Env.hookfunc(Hooks._restores[i].wrapped, Hooks._restores[i].original) end) end
-    if Hooks._restores.setmt then pcall(function() Env.hookfunc(Hooks._restores.setmt.wrapped, Hooks._restores.setmt.original) end) end
     table.clear(Hooks._consts); table.clear(Hooks._metahooks); table.clear(Hooks._restores)
 end
 
@@ -270,7 +256,8 @@ do
     local getconst, setconst = Env.getconst, Env.setconst
     if Env.CAN_CONST then
         function ConstPatch.patch(fn, index, oldVal, newVal)
-            if getconst(fn)[index] == oldVal then
+            local consts = getconst(fn)
+            if consts and consts[index] == oldVal then
                 pcall(setconst, fn, index, newVal)
                 table.insert(ConstPatch._ledger, { fn = fn, index = index, old = oldVal })
                 return true
@@ -404,10 +391,8 @@ local api = {}
 function api.Destroy()
     pcall(Hooks.teardown)
     pcall(ConstPatch.revertAll)
-    -- Additional cleanup will be added in Part 2
     if Env.getgenv().__Eclipse == api then Env.getgenv().__Eclipse = nil end
 end
 
 Env.getgenv().__Eclipse = api
 return api
-

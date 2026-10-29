@@ -44,14 +44,14 @@ local function tween(obj, props, dur, ease, dir)
 end
 
 local spgame = {
-    ["Rivals"] = {id = "f734cbc6d30b72abe044a3fb60543345", keyless = false},
-    ["Flick"] = {id = "9a65bec4c321b3f25f47a860831e9b2d", keyless = false},
-    ["SailorPiece"] = {id = "66387fa15569b822d2ea55a5faabe87c", keyless = false},
-    ["SlimeRNG"] = {id = "7a8b76f35bce8a800da3cd7aad830bcd", keyless = false},
-    ["TypeSoul"] = {id = "5f6af3cb21fee478aa17493db9e1853b", keyless = false},
-    ["Violence District"] = {id = "b788ceefa4a0c32bd78003c2d3618109", keyless = false},
-    ["99 Nights in the Forest"] = {id = "5608e43c201375a9258c222f324abfa1", keyless = false},
-    ["Universal"] = {id = "18fa0aa2984290b5582813fe581dd4cf", keyless = false}
+    ["Rivals"] = {id = "f734cbc6d30b72abe044a3fb60543345"},
+    ["Flick"] = {id = "9a65bec4c321b3f25f47a860831e9b2d"},
+    ["SailorPiece"] = {id = "66387fa15569b822d2ea55a5faabe87c"},
+    ["SlimeRNG"] = {id = "7a8b76f35bce8a800da3cd7aad830bcd"},
+    ["TypeSoul"] = {id = "5f6af3cb21fee478aa17493db9e1853b"},
+    ["Violence District"] = {id = "b788ceefa4a0c32bd78003c2d3618109"},
+    ["99 Nights in the Forest"] = {id = "5608e43c201375a9258c222f324abfa1"},
+    ["Universal"] = {id = "18fa0aa2984290b5582813fe581dd4cf"}
 }
 
 local function detectGame()
@@ -99,7 +99,6 @@ end
 local gameName = detectGame()
 local currentGame = spgame[gameName]
 local scriptId = currentGame.id
-local isKeyless = currentGame.keyless == true
 sdk.script_id = scriptId
 
 local actorRun = rawget(getfenv(0), "run_on_actor")
@@ -118,22 +117,19 @@ local function findActor()
     return nil
 end
 
-local function runOnActor(src, key)
+local function runOnActor(src)
     if not src or src == "" then return false, "empty source" end
     local actor = findActor()
     if not actor then return false, "no actor" end
     local wrapper = [[
-        local src, key = ...
-        if key and key ~= "" then
-            pcall(function() getgenv().script_key = key end)
-        end
+        local src = ...
         pcall(function()
             local chunk = loadstring(src)
             if chunk then chunk() end
         end)
     ]]
     local ok, err = pcall(function()
-        actorRun(actor, wrapper, src, key or "")
+        actorRun(actor, wrapper, src)
     end)
     if ok then return true end
     return false, tostring(err)
@@ -149,22 +145,13 @@ local function fetchSource(hash)
     return nil, tostring(src)
 end
 
-local function withKey(src, key)
-    if not key or key == "" then return src end
-    return string.format("script_key = %q\npcall(function() getgenv().script_key = script_key end)\n", key) .. src
-end
-
-local function loadScript(key)
+local function loadScript()
     local hash = scriptId
     local src = fetchSource(hash)
     if src then
-        src = withKey(src, key)
-        local actorOk = runOnActor(src, key)
+        local actorOk = runOnActor(src)
         if actorOk then return true end
 
-        if key and key ~= "" then
-            pcall(function() getgenv().script_key = key end)
-        end
         local directOk = pcall(function()
             local chunk = loadstring(src)
             if chunk then chunk() end
@@ -176,89 +163,6 @@ local function loadScript(key)
         if type(sdk.load_script) == "function" then sdk.load_script() end
     end)
     return ok
-end
-
-local statusCache = {}
-
-local function checkKeyStatus(key)
-    local cached = statusCache[key]
-    if cached then
-        while cached.pending do task.wait(0.05) end
-        if cached.status and os.clock() - cached.time < 30 then
-            return cached.status
-        end
-    end
-
-    local entry = {pending = true}
-    statusCache[key] = entry
-    local result
-    for _ = 1, 3 do
-        local ok, status = pcall(function() return sdk.check_key(key) end)
-        if ok and type(status) == "table" and type(status.code) == "string" then
-            result = status
-            break
-        end
-        task.wait(1)
-    end
-    entry.status = result
-    entry.time = os.clock()
-    entry.pending = false
-    return result
-end
-
-local kfolder = "KEY"
-local kfile = kfolder .. "/key.txt"
-
-local function hasFileApi()
-    return typeof(isfile) == "function"
-        and typeof(readfile) == "function"
-        and typeof(writefile) == "function"
-        and typeof(isfolder) == "function"
-        and typeof(makefolder) == "function"
-end
-
-local function ensureKeyFolder()
-    if not hasFileApi() then return end
-    pcall(function()
-        if not isfolder(kfolder) then makefolder(kfolder) end
-    end)
-end
-
-local function saveKey(key)
-    if not hasFileApi() or not key or key == "" then return end
-    pcall(function()
-        ensureKeyFolder()
-        writefile(kfile, key)
-    end)
-end
-
-local function loadSavedKey()
-    if not hasFileApi() then return nil end
-    local ok, content = pcall(function()
-        if isfile(kfile) then return readfile(kfile) end
-        return nil
-    end)
-    if ok and content then
-        local trimmed = content:gsub("%s+", "")
-        if trimmed ~= "" then return trimmed end
-    end
-    return nil
-end
-
-local function deleteSavedKey()
-    if not hasFileApi() then return end
-    pcall(function()
-        if isfile(kfile) and typeof(delfile) == "function" then
-            delfile(kfile)
-        end
-    end)
-end
-
-ensureKeyFolder()
-
-local function runKeyless()
-    getgenv().script_key = nil
-    loadstring(game:HttpGet("https://api.luarmor.net/files/v4/loaders/" .. scriptId .. ".lua"))()
 end
 
 local Theme = {
@@ -287,15 +191,10 @@ local FONT_BOLD = Enum.Font.BuilderSansBold
 local FONT_TITLE = Enum.Font.Creepster
 local MAIN_SIZE = isMobile and UDim2.new(0, 420, 0, 250) or UDim2.new(0, 600, 0, 350)
 local SHADOW_SIZE = isMobile and UDim2.new(0, 420, 0, 250) or UDim2.new(0, 600, 0, 350)
-local SUCCESS_SIZE = isMobile and UDim2.new(0, 360, 0, 260) or UDim2.new(0, 520, 0, 360)
 local SIDEBAR_WIDTH = isMobile and 120 or 170
 local pad = isMobile and 16 or 32
 local btnHeight = isMobile and 30 or 40
 local RADIUS = UDim.new(0, 4)
-
-local yKey = isMobile and 78 or 136
-local yLogin = isMobile and 116 or 188
-local yRow = isMobile and 154 or 240
 
 local function typeText(label, fullText, baseDelay)
     local delay = baseDelay or 0.035
@@ -385,7 +284,6 @@ local function notify(title, msg, time)
 
     local titleLabel = card:FindFirstChild("Title")
     local descLabel = card:FindFirstChild("Desc")
-    local accentBar = card:FindFirstChild("AccentBar")
     local timerBar = card:FindFirstChild("TimerBar")
     local stroke = card:FindFirstChild("UIStroke")
 
@@ -397,11 +295,6 @@ local function notify(title, msg, time)
     task.delay(0.22, function()
         if descLabel and descLabel.Parent then
             tween(descLabel, {TextTransparency = 0}, 0.35, Enum.EasingStyle.Exponential)
-        end
-    end)
-    task.delay(0.1, function()
-        if accentBar and accentBar.Parent then
-            tween(accentBar, {Size = UDim2.new(0, 3, 1, 0)}, 0.6, Enum.EasingStyle.Exponential)
         end
     end)
     if stroke then
@@ -423,20 +316,13 @@ local function notify(title, msg, time)
             if descLabel and descLabel.Parent then
                 tween(descLabel, {TextTransparency = 1}, 0.2)
             end
-            if accentBar and accentBar.Parent then
-                tween(accentBar, {Size = UDim2.new(0, 3, 0, 0), BackgroundTransparency = 1}, 0.25)
-            end
-
             task.wait(0.12)
-
             if card and card.Parent then
                 tween(card, {BackgroundTransparency = 1}, 0.2)
                 if stroke and stroke.Parent then
                     tween(stroke, {Transparency = 1}, 0.2)
                 end
-
                 task.wait(0.1)
-
                 if card and card.Parent then
                     tween(card, {Size = UDim2.new(1, 0, 0, 0)}, 0.3, Enum.EasingStyle.Exponential)
                     task.wait(0.35)
@@ -597,106 +483,8 @@ local function smallText(text, y, size)
     })
 end
 
-local keyCaption = smallText("LICENSE KEY", yKey - (isMobile and 15 or 19), isMobile and 10 or 12)
-local footerLabel = smallText("Your key is saved after the first check", isMobile and 226 or 318, isMobile and 10 or 12)
+local footerLabel = smallText("Loading your script...", isMobile and 226 or 318, isMobile and 10 or 12)
 footerLabel.Font = FONT
-
-local function buildInput(placeholder, yPos, isPassword)
-    local container = new("Frame", {
-        Parent = content,
-        BackgroundColor3 = Theme.Input,
-        Position = UDim2.new(0, pad, 0, yPos),
-        Size = UDim2.new(1, -pad * 2, 0, btnHeight),
-        BorderSizePixel = 0,
-        BackgroundTransparency = 1
-    }, {
-        new("UICorner", {CornerRadius = RADIUS}),
-        new("UIStroke", {Color = Theme.ElementBorder, Thickness = 1, Transparency = 1})
-    })
-
-    local input = new("TextBox", {
-        Parent = container,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 12, 0, 0),
-        Size = UDim2.new(1, isPassword and -54 or -24, 1, 0),
-        Font = FONT,
-        Text = "",
-        PlaceholderText = placeholder,
-        PlaceholderColor3 = Theme.Placeholder,
-        TextColor3 = Theme.Text,
-        TextSize = isMobile and 11 or 13,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        ClearTextOnFocus = false
-    })
-
-    local mask
-    if isPassword then
-        mask = new("TextLabel", {
-            Parent = container,
-            BackgroundTransparency = 1,
-            Position = UDim2.new(0, 12, 0, 0),
-            Size = UDim2.new(1, -54, 1, 0),
-            Font = FONT_BOLD,
-            Text = "",
-            TextColor3 = Theme.Text,
-            TextSize = isMobile and 12 or 14,
-            TextXAlignment = Enum.TextXAlignment.Left,
-            ZIndex = 2
-        })
-        input.TextTransparency = 1
-        input:GetPropertyChangedSignal("Text"):Connect(function()
-            mask.Text = string.rep("\226\128\162", #input.Text)
-        end)
-    end
-
-    input.Focused:Connect(function()
-        tween(container, {BackgroundColor3 = Theme.InputFocus}, 0.25, Enum.EasingStyle.Exponential)
-    end)
-    input.FocusLost:Connect(function()
-        tween(container, {BackgroundColor3 = Theme.Input}, 0.35, Enum.EasingStyle.Exponential)
-    end)
-
-    return input, container, mask
-end
-
-local keyInput, keyInputContainer, keyMask = buildInput("Enter your key", yKey, true)
-
-local function showKey(visible)
-    keyInput.TextTransparency = visible and 0 or 1
-    if keyMask then keyMask.TextTransparency = visible and 1 or 0 end
-end
-
-local EYE_CLOSED = "rbxassetid://83952363468155"
-local EYE_OPEN = "rbxassetid://111787823887334"
-
-local eyeBtn = new("ImageButton", {
-    Parent = keyInputContainer,
-    BackgroundTransparency = 1,
-    Position = UDim2.new(1, -36, 0.5, 0),
-    Size = UDim2.new(0, 20, 0, 20),
-    AnchorPoint = Vector2.new(0, 0.5),
-    Image = EYE_CLOSED,
-    ImageColor3 = Theme.Accent,
-    ImageTransparency = 1,
-    ScaleType = Enum.ScaleType.Fit,
-    AutoButtonColor = false,
-    ZIndex = 3
-})
-
-eyeBtn.MouseEnter:Connect(function()
-    tween(eyeBtn, {ImageColor3 = Theme.AccentGlow}, 0.2, Enum.EasingStyle.Exponential)
-end)
-eyeBtn.MouseLeave:Connect(function()
-    tween(eyeBtn, {ImageColor3 = Theme.Accent}, 0.2, Enum.EasingStyle.Exponential)
-end)
-
-local keyVisible = false
-eyeBtn.MouseButton1Click:Connect(function()
-    keyVisible = not keyVisible
-    showKey(keyVisible)
-    eyeBtn.Image = keyVisible and EYE_OPEN or EYE_CLOSED
-end)
-
 local function buildButton(text, yPos, isPrimary, side)
     local pos = UDim2.new(0, pad, 0, yPos)
     local size = UDim2.new(1, -pad * 2, 0, btnHeight)
@@ -743,22 +531,12 @@ local function buildButton(text, yPos, isPrimary, side)
     return btn
 end
 
-local loginBtn = buildButton("Check Key", yLogin, true)
-local getKeyBtn = buildButton("Get Free Key (Click me) ", yRow, false, "left")
-local buyBtn = buildButton("Buy Premium (Click me)", yRow, false, "right")
+local loginBtn = buildButton("Loading...", isMobile and 116 or 188, true)
+loginBtn.Active = false
 
-local scanBar = new("Frame", {
-    Name = "ScanBar",
-    Parent = loginBtn,
-    BackgroundColor3 = Theme.AccentGlow,
-    BackgroundTransparency = 1,
-    Position = UDim2.new(-0.3, 0, 0, 0),
-    Size = UDim2.new(0.3, 0, 1, 0),
-    BorderSizePixel = 0,
-    ZIndex = 2
-}, {
-    new("UICorner", {CornerRadius = RADIUS})
-})
+local rowY = isMobile and 154 or 240
+local getKeyBtn = buildButton("Get Free Key (Click me)", rowY, false, "left")
+local buyBtn = buildButton("Buy Premium (Click me)", rowY, false, "right")
 
 local discordBtn = new("TextButton", {
     Parent = sidebar,
@@ -816,7 +594,7 @@ local infoCard = new("Frame", {
     Parent = sideInfo,
     BackgroundColor3 = Theme.Input,
     Position = UDim2.new(0, isMobile and 8 or 12, 0, isMobile and 88 or 140),
-    Size = UDim2.new(1, isMobile and -16 or -24, 0, rowHeight * 3),
+    Size = UDim2.new(1, isMobile and -16 or -24, 0, rowHeight * 2),
     BorderSizePixel = 0
 }, {
     new("UICorner", {CornerRadius = RADIUS}),
@@ -856,46 +634,7 @@ local function infoRow(index, name, value)
 end
 
 infoRow(1, "Executor", getExecutor())
-local keyTimeLabel = infoRow(2, "Time Left", "--")
-infoRow(3, "Game", gameName == "Default" and "Universal" or tostring(gameName))
-local function setTimeLeft(value)
-    keyTimeLabel.Text = value
-end
-
-local function formatLeft(sec)
-    if sec <= 0 then return "Expired" end
-    local d = math.floor(sec / 86400)
-    local h = math.floor(sec % 86400 / 3600)
-    local m = math.floor(sec % 3600 / 60)
-    if d > 0 then return d .. "d " .. h .. "h" end
-    if h > 0 then return h .. "h " .. m .. "m" end
-    return math.max(1, m) .. "m"
-end
-
-local function setKeyTime(status)
-    local data = type(status) == "table" and status.data
-    local expire = type(data) == "table" and tonumber(data.auth_expire)
-    if not expire then
-        setTimeLeft("--")
-    elseif expire <= 0 then
-        setTimeLeft("Lifetime")
-    else
-        setTimeLeft(formatLeft(expire - os.time()))
-    end
-end
-
-local StatusMessages = {
-    KEY_VALID = "Key Validated! Loading...",
-    KEY_EXPIRED = "Your Key is expired, get a new one",
-    KEY_BANNED = "Your banned\u{1F973}",
-    KEY_HWID_LOCKED = "HWID Locked! Reset in Discord",
-    KEY_INCORRECT = "Incorect Key version, make sure you copied it right",
-    KEY_INVALID = "Invalid Key",
-    INVALID_EXECUTOR = "Wtf is that Executor, We dont support it",
-    SECURITY_ERROR = "111 Error, Report in Discord",
-    TIME_ERROR = "234 Error, Report in Discord",
-    UNKNOWN_ERROR = "228 Error, Report in Discord"
-}
+infoRow(2, "Game", gameName == "Default" and "Universal" or tostring(gameName))
 
 local halloweenDecor = new("Frame", {
     Name = "HalloweenDecor",
@@ -1057,15 +796,7 @@ getKeyBtn.MouseButton1Click:Connect(function()
     notify("Key System", "Key link copied. Paste it in your browser", 5)
 end)
 
-local authInProgress = false
-
 local function finishAndLoad(run)
-    if scanBar and scanBar.Parent then
-        tween(scanBar, {Size = UDim2.new(1, 0, 1, 0), Position = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 0.7}, 0.3, Enum.EasingStyle.Exponential)
-        task.wait(0.2)
-        tween(scanBar, {BackgroundTransparency = 1}, 0.3, Enum.EasingStyle.Exponential)
-    end
-
     local stroke = mainFrame:FindFirstChild("UIStroke")
 
     task.wait(0.4)
@@ -1089,10 +820,7 @@ local function finishAndLoad(run)
 
     task.wait(0.2)
 
-    tween(mainFrame, {
-        Size = SUCCESS_SIZE,
-        BackgroundTransparency = 1
-    }, 0.5, Enum.EasingStyle.Exponential)
+    tween(mainFrame, {Size = isMobile and UDim2.new(0, 360, 0, 260) or UDim2.new(0, 520, 0, 360), BackgroundTransparency = 1}, 0.5, Enum.EasingStyle.Exponential)
     tween(shadow, {BackgroundTransparency = 1}, 0.4, Enum.EasingStyle.Exponential)
     if stroke then
         tween(stroke, {Transparency = 1}, 0.4, Enum.EasingStyle.Exponential)
@@ -1102,83 +830,6 @@ local function finishAndLoad(run)
     screenGui:Destroy()
     run()
 end
-
-local function checkKey(key, isAuto)
-    if authInProgress then return end
-    if not key or key == "" then
-        notify("Warning", "Key is required", 2)
-        return
-    end
-    authInProgress = true
-
-    loginBtn.Text = "Authenticating..."
-
-    local scanActive = true
-    task.spawn(function()
-        scanBar.BackgroundTransparency = 0.82
-        while scanActive do
-            if scanBar and scanBar.Parent then
-                scanBar.Position = UDim2.new(-0.3, 0, 0, 0)
-                local info = TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
-                local sweep = TweenService:Create(scanBar, info, {Position = UDim2.new(1, 0, 0, 0)})
-                sweep:Play()
-                sweep.Completed:Wait()
-                task.wait(0.15)
-            else
-                break
-            end
-        end
-        if scanBar and scanBar.Parent then
-            scanBar.BackgroundTransparency = 1
-        end
-    end)
-
-    task.spawn(function()
-        local status = checkKeyStatus(key)
-        scanActive = false
-
-        if not status then
-            loginBtn.Text = "Check Key"
-            if scanBar and scanBar.Parent then
-                scanBar.BackgroundTransparency = 1
-            end
-            tween(loginBtn, {BackgroundTransparency = 0, BackgroundColor3 = Theme.Accent}, 0.2)
-            notify("Connection Error", "Could not reach the key server. Try again.", 4)
-            authInProgress = false
-            return
-        end
-
-        if status.code == "KEY_VALID" then
-            getgenv().script_key = key
-            saveKey(key)
-            setKeyTime(status)
-            notify("Success", StatusMessages.KEY_VALID, 3)
-            finishAndLoad(function() loadScript(key) end)
-        else
-            loginBtn.Text = "Check Key"
-            if scanBar and scanBar.Parent then
-                scanBar.BackgroundTransparency = 1
-            end
-            tween(loginBtn, {BackgroundTransparency = 0, BackgroundColor3 = Theme.Accent}, 0.2)
-
-            local code = status.code
-            local expired = code == "KEY_EXPIRED"
-            if expired then
-                setTimeLeft("Expired")
-            end
-            if isAuto or expired then
-                deleteSavedKey()
-            end
-            notify(isAuto and "Saved Key" or "Auth Error", StatusMessages[code] or StatusMessages.UNKNOWN_ERROR, 4)
-            authInProgress = false
-        end
-    end)
-end
-
-loginBtn.MouseButton1Click:Connect(function()
-    local key = keyInput.Text:gsub("%s+", "")
-    checkKey(key, false)
-end)
 
 local function makeDraggable(frame)
     local dragging, dragInput, dragStart, startPos
@@ -1204,48 +855,17 @@ local function makeDraggable(frame)
             local delta = input.Position - dragStart
             local x = startPos.X.Offset + delta.X
             local y = startPos.Y.Offset + delta.Y
-            tween(frame, {
-                Position = UDim2.new(startPos.X.Scale, x, startPos.Y.Scale, y)
-            }, 0.06, Enum.EasingStyle.Sine)
-            tween(shadow, {
-                Position = UDim2.new(startPos.X.Scale, x, startPos.Y.Scale, y + 6)
-            }, 0.08, Enum.EasingStyle.Sine)
+            tween(frame, {Position = UDim2.new(startPos.X.Scale, x, startPos.Y.Scale, y)}, 0.06, Enum.EasingStyle.Sine)
+            tween(shadow, {Position = UDim2.new(startPos.X.Scale, x, startPos.Y.Scale, y + 6)}, 0.08, Enum.EasingStyle.Sine)
         end
     end)
 end
 
 makeDraggable(mainFrame)
 
-if not isKeyless then
-    task.delay(0.7, function()
-        local saved = loadSavedKey()
-        if not saved then
-            setTimeLeft("None")
-            return
-        end
-        local status = checkKeyStatus(saved)
-        if not status then return end
-        if status.code == "KEY_VALID" then
-            setKeyTime(status)
-        elseif status.code == "KEY_EXPIRED" then
-            setTimeLeft("Expired")
-        else
-            setTimeLeft("None")
-        end
-    end)
-end
-
-if isKeyless then
-    authInProgress = true
-    setTimeLeft("Keyless")
-    task.spawn(function()
-        task.wait(0.8)
-        notify("Keyless", gameName .. " is Keyless for a Week", 3)
-        loginBtn.Text = "Loading..."
-        task.wait(1.2)
-        finishAndLoad(runKeyless)
-    end)
-end
+-- ===== KEY SYSTEM REMOVED =====
+-- Instead of authenticating with a key, we simply load the script
+-- (server-side licensing, if any, is handled by the Luarmor loader itself).
 
 task.spawn(function()
     tween(shadow, {BackgroundTransparency = 0.5, Position = UDim2.new(0.5, 0, 0.5, 6), Size = SHADOW_SIZE}, 0.6, Enum.EasingStyle.Exponential)
@@ -1292,33 +912,11 @@ task.spawn(function()
 
     task.wait(0.08)
 
-    typeText(welcomeLabel, "Enter your key to continue", 0.022)
-
-    task.wait(0.12)
-
-    tween(keyCaption, {TextTransparency = 0}, 0.35, Enum.EasingStyle.Exponential)
-
-    tween(keyInputContainer, {BackgroundTransparency = 0}, 0.35, Enum.EasingStyle.Exponential)
-    local keyStroke = keyInputContainer:FindFirstChild("UIStroke")
-    if keyStroke then tween(keyStroke, {Transparency = 0}, 0.35, Enum.EasingStyle.Exponential) end
-    tween(eyeBtn, {ImageTransparency = 0}, 0.35, Enum.EasingStyle.Exponential)
+    typeText(welcomeLabel, "Loading your script...", 0.022)
 
     task.wait(0.12)
 
     tween(loginBtn, {BackgroundTransparency = 0, TextTransparency = 0}, 0.35, Enum.EasingStyle.Exponential)
-
-    task.spawn(function()
-        task.wait(0.2)
-
-        if isKeyless then return end
-
-        local saved = loadSavedKey()
-        if saved and saved ~= "" then
-            keyInput.Text = saved
-            notify("Auto Login", "Checking saved key...", 2)
-            checkKey(saved, true)
-        end
-    end)
 
     task.wait(0.1)
 
@@ -1334,4 +932,12 @@ task.spawn(function()
 
     task.wait(0.1)
     tween(footerLabel, {TextTransparency = 0}, 0.35, Enum.EasingStyle.Exponential)
+
+    task.wait(0.8)
+
+    notify("Welcome", "Loading " .. (gameName == "Default" and "Universal" or gameName) .. " script...", 2)
+
+    finishAndLoad(function()
+        loadScript()
+    end)
 end)

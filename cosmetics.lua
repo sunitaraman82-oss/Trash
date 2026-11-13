@@ -1,11 +1,48 @@
 -- =========================================================
--- ECLIPSE — SKIN CHANGER / COSMETICS (PART 1/2)
+-- LINORIA UI SETUP
 -- =========================================================
+local repo = 'https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/'
+local Library, ThemeManager, SaveManager
+do
+    local files, pending = {}, 3
+    local urls = { 'Library.lua', 'addons/ThemeManager.lua', 'addons/SaveManager.lua' }
+    for i = 1, 3 do
+        task.spawn(function()
+            local got, body = pcall(function() return game:HttpGet(repo .. urls[i]) end)
+            if got and type(body) == 'string' and #body > 0 then files[i] = body end
+            pending = pending - 1
+        end)
+    end
+    local deadline = tick() + 20
+    while pending > 0 and tick() < deadline do task.wait() end
+    for i = 1, 3 do
+        if files[i] == nil then warn("[Engine] failed to fetch " .. urls[i]); return end
+    end
+    local src = files[1]
+    local patched, n = src:gsub('if not FetchIcons then', 'if not Icons then')
+    if n > 0 then src = patched end
+    Library      = loadstring(src)()
+    ThemeManager = loadstring(files[2])()
+    SaveManager  = loadstring(files[3])()
+end
+if not Library then return end
+
+local Options = Library.Options or {}
+local Toggles = Library.Toggles or {}
+Library.Options = Options
+Library.Toggles = Toggles
+
+local cloneref = clonereference or cloneref or function(x) return x end
 local Players           = game:GetService("Players")
 local RunService        = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService  = game:GetService("UserInputService")
 local lp                = Players.LocalPlayer
+local isMobile          = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
 
+-- =========================================================
+-- MODULE LOADER
+-- =========================================================
 local function safeRequire(path, timeout)
     if not path then return nil end
     timeout = timeout or 5
@@ -66,263 +103,269 @@ resolveAll({
 })
 Rivals.Ready = (Rivals.Util ~= nil and Rivals.Fighter ~= nil)
 
+-- =========================================================
+-- CONFIG
+-- =========================================================
 local Config = {
-    GameVisuals = true,
-    GVUnlockAll = true,
-    GVUnlockWeapons = true,
-    GVEveryone = false,
-    GVBirthHook = true,
-    GVFinisherClone = true,
+    GameVisuals = false, GVUnlockAll = true, GVUnlockWeapons = false, GVWrapInverted = false,
+    GVEveryone = false, GVBirthHook = true, GVFinisherClone = true, GVRemember = true,
 }
 
+-- =========================================================
+-- GAMEVISUALS (Cosmetics) - PART 1
+-- =========================================================
 local GameVisuals = {}
-local M = { cvm=nil, ci=nil, pdc=nil, fctrl=nil, ilib=nil, cent=nil, cslot=nil, copts=nil, shop=nil }
-
-local function moduleAt(path)
-    local m = nil
-    pcall(function() m = loadGameModule(lp.PlayerScripts, path) end)
-    return m
-end
-local function repModuleAt(path)
-    local m = nil
-    pcall(function() m = loadGameModule(ReplicatedStorage, path) end)
-    return m
-end
-
-local _resolving, _resolveAt, _optTries = false, 0, 0
-local function resolveModules()
-    if M.cvm ~= nil and M.ci ~= nil and M.pdc ~= nil and _optTries >= 3 then return end
-    if _resolving then return end
-    local now = tick()
-    if now < _resolveAt then return end
-    _resolveAt = now + 5
-    _resolving = true
-    if M.cvm == nil then
-        M.cvm = moduleAt({"Modules","ClientReplicatedClasses","ClientFighter","ClientItem","ClientViewModel"})
+GameVisuals.uiAlive = true
+;(function()
+    local NONE_COSMETIC   = "NONE_COSMETIC"
+    local RANDOM_COSMETIC = "RANDOM_COSMETIC"
+    local POLL_S = 0.35
+    local REBUILD_COOLDOWN = 1.5
+    local captureInstall, captureRestore
+    local saveSoon, saveDrain
+    local _log, _lastNote = {}, nil
+    local function note(msg)
+        if msg == _lastNote then return end
+        _lastNote = msg
+        table.insert(_log, msg)
+        if #_log > 60 then table.remove(_log, 1) end
     end
-    if M.ci   == nil then M.ci   = moduleAt({"Modules","ClientReplicatedClasses","ClientFighter","ClientItem"}) end
-    if M.cent == nil then M.cent = moduleAt({"Modules","ClientReplicatedClasses","ClientEntity"}) end
-    if M.pdc  == nil then M.pdc  = moduleAt({"Controllers","PlayerDataController"}) end
-    if _optTries < 3 then
-        _optTries = _optTries + 1
-        if M.cslot == nil then M.cslot = moduleAt({"Modules","CosmeticSlot"}) end
-        if M.copts == nil then
-            M.copts = moduleAt({"Modules","UserInterface","Equipment","Interface","Customize","Options"})
+    local ENUM = {}
+    local function enumOf(key)
+        if ENUM[key] ~= nil then return ENUM[key] end
+        local e = nil
+        pcall(function() e = Rivals.Enums:ToEnum(key) end)
+        ENUM[key] = e
+        return e
+    end
+    local M = { cvm=nil, ci=nil, pdc=nil, fctrl=nil, ilib=nil, cent=nil, cslot=nil, copts=nil, shop=nil }
+    local function moduleAt(path)
+        local m = nil
+        pcall(function() m = loadGameModule(lp.PlayerScripts, path) end)
+        return m
+    end
+    local function repModuleAt(path)
+        local m = nil
+        pcall(function() m = loadGameModule(ReplicatedStorage, path) end)
+        return m
+    end
+    local _resolving, _resolveAt, _optTries = false, 0, 0
+    local function resolveModules()
+        if M.cvm ~= nil and M.ci ~= nil and M.pdc ~= nil and _optTries >= 3 then return end
+        if _resolving then return end
+        local now = tick()
+        if now < _resolveAt then return end
+        _resolveAt = now + 5
+        _resolving = true
+        if M.cvm == nil then M.cvm = moduleAt({"Modules","ClientReplicatedClasses","ClientFighter","ClientItem","ClientViewModel"}) end
+        if M.ci   == nil then M.ci   = moduleAt({"Modules","ClientReplicatedClasses","ClientFighter","ClientItem"}) end
+        if M.cent == nil then M.cent = moduleAt({"Modules","ClientReplicatedClasses","ClientEntity"}) end
+        if M.pdc  == nil then M.pdc  = moduleAt({"Controllers","PlayerDataController"}) end
+        if _optTries < 3 then
+            _optTries = _optTries + 1
+            if M.cslot == nil then M.cslot = moduleAt({"Modules","CosmeticSlot"}) end
+            if M.copts == nil then M.copts = moduleAt({"Modules","UserInterface","Equipment","Interface","Customize","Options"}) end
+            if M.shop  == nil then M.shop  = repModuleAt({"Modules","ShopLibrary"}) end
+            if M.seasonLib == nil then M.seasonLib = repModuleAt({"Modules","SeasonLibrary"}) end
         end
-        if M.shop  == nil then M.shop  = repModuleAt({"Modules","ShopLibrary"}) end
-        if M.seasonLib == nil then M.seasonLib = repModuleAt({"Modules","SeasonLibrary"}) end
-        if M.emoteCtl == nil then M.emoteCtl = moduleAt({"Controllers","EmoteController"}) end
+        if M.fctrl == nil then M.fctrl = Rivals.Fighter end
+        if M.ilib  == nil then M.ilib  = Rivals.ItemLib end
+        _resolving = false
     end
-    if M.fctrl == nil then M.fctrl = Rivals.Fighter end
-    if M.ilib  == nil then M.ilib  = Rivals.ItemLib end
-    _resolving = false
-end
-
-local NONE_COSMETIC   = "NONE_COSMETIC"
-local RANDOM_COSMETIC = "RANDOM_COSMETIC"
-local REBUILD_COOLDOWN = 1.5
-local captureInstall, captureRestore
-local saveSoon, saveDrain
-
-local _log = {}
-local function note(msg)
-    if #_log > 50 then table.remove(_log, 1) end
-    table.insert(_log, msg)
-end
-
-local ENUM = {}
-local function enumOf(key)
-    if ENUM[key] ~= nil then return ENUM[key] end
-    local e = nil
-    pcall(function() e = Rivals.Enums:ToEnum(key) end)
-    ENUM[key] = e
-    return e
-end
-
-GameVisuals.Choices = {}
-local function selectionFor(itemName) return GameVisuals.Choices[itemName] end
-local _maskTarget, _maskInner, _maskConn = nil, nil, nil
-local _spoof = {}
-local _favOverride = {}
-local _rsPatch, _captured, _captureBound = {}, 0, 0
-local DECOY, _lastFn = nil, nil
-
-local function maskActive()
-    if _maskTarget == nil then return false end
-    local cur = nil
-    pcall(function() cur = M.pdc.CurrentData end)
-    return cur == _maskTarget
-end
-local function maskRemove()
-    if _maskTarget == nil then return end
-    local target, inner = _maskTarget, _maskInner
-    _maskTarget, _maskInner = nil, nil
-    pcall(function() rawset(target, "Data", inner) end)
-end
-local function maskInstall()
-    resolveModules()
-    if M.pdc == nil then return false, "PlayerDataController did not resolve" end
-    local cur = nil
-    pcall(function() cur = M.pdc.CurrentData end)
-    if cur == nil then return false, "no CurrentData yet (still loading)" end
-    if cur == _maskTarget then return true, nil end
-    maskRemove()
-    local inner = rawget(cur, "Data")
-    if type(inner) ~= "table" then return false, "CurrentData.Data is not a table" end
-    local proxy = setmetatable({}, {
-        __index = function(_, k)
-            local p = _spoof[k]
-            if p ~= nil then return p(inner[k]) end
-            return inner[k]
-        end,
-        __newindex = function(_, k, v) inner[k] = v end,
-        __iter = function() return next, inner end,
-        __len  = function() return #inner end,
-    })
-    rawset(cur, "Data", proxy)
-    _maskTarget, _maskInner = cur, inner
-    return true, nil
-end
-local function refresh(key)
-    pcall(function()
-        local cur = M.pdc.CurrentData
-        if cur ~= nil then cur:Replicate(key) end
-    end)
-end
-local function refreshAll()
-    refresh("CosmeticInventory"); refresh("FavoritedCosmetics")
-    refresh("WeaponInventory"); refresh("EquippedEmotes")
-end
-local function everyCosmetic(real)
-    local out = {}
-    if type(real) == "table" then for k, v in pairs(real) do out[k] = v end end
-    pcall(function()
-        local cos = Rivals.Cosmetics.Cosmetics
-        if type(cos) ~= "table" then return end
-        for name in pairs(cos) do if out[name] == nil then out[name] = true end end
-    end)
-    return out
-end
-local function everyFavorite(real)
-    local out = {}
-    if type(real) == "table" then for k, v in pairs(real) do out[k] = v end end
-    for weapon, marks in pairs(_favOverride) do
-        local merged = {}
-        if type(out[weapon]) == "table" then for k, v in pairs(out[weapon]) do merged[k] = v end end
-        for k, v in pairs(marks) do merged[k] = v end
-        out[weapon] = merged
+    GameVisuals.Choices = {}
+    local function selectionFor(itemName) return GameVisuals.Choices[itemName] end
+    local _maskTarget, _maskInner, _maskConn = nil, nil, nil
+    local _spoof = {}
+    local _favOverride = {}
+    local _rsPatch, _captured, _captureBound = {}, 0, 0
+    local DECOY, _lastFn = nil, nil
+    local _saveAt, _fsWarned = nil, false
+    local function maskActive()
+        if _maskTarget == nil then return false end
+        local cur = nil
+        pcall(function() cur = M.pdc.CurrentData end)
+        return cur == _maskTarget
     end
-    return out
-end
-local function mergeChoices(entry, weapon)
-    local slot = GameVisuals.Choices[weapon]
-    if slot == nil then return entry end
-    for _, kind in pairs({ "Skin", "Charm", "Wrap", "Finisher" }) do
-        local sel = slot[kind]
-        if sel ~= nil then entry[kind] = sel end
+    local function maskRemove()
+        if _maskTarget == nil then return end
+        local target, inner = _maskTarget, _maskInner
+        _maskTarget, _maskInner = nil, nil
+        pcall(function() rawset(target, "Data", inner) end)
     end
-    return entry
-end
-local function ownableWeapons()
-    local out = {}
-    pcall(function()
-        if M.shop == nil or type(M.shop.GetReleasedOwnableWeapons) ~= "function" then return end
-        local list = M.shop:GetReleasedOwnableWeapons()
-        if type(list) ~= "table" then return end
-        for _, name in pairs(list) do
-            if type(name) == "string" then table.insert(out, name) end
+    local function maskInstall()
+        resolveModules()
+        if M.pdc == nil then return false, "PlayerDataController did not resolve" end
+        local cur = nil
+        pcall(function() cur = M.pdc.CurrentData end)
+        if cur == nil then return false, "no CurrentData yet (still loading)" end
+        if cur == _maskTarget then return true, nil end
+        maskRemove()
+        local inner = rawget(cur, "Data")
+        if type(inner) ~= "table" then return false, "CurrentData.Data is not a table" end
+        local proxy = setmetatable({}, {
+            __index = function(_, k)
+                local p = _spoof[k]
+                if p ~= nil then return p(inner[k]) end
+                return inner[k]
+            end,
+            __newindex = function(_, k, v) inner[k] = v end,
+            __iter = function() return next, inner end,
+            __len  = function() return #inner end,
+        })
+        rawset(cur, "Data", proxy)
+        _maskTarget, _maskInner = cur, inner
+        return true, nil
+    end
+    local function refresh(key)
+        pcall(function()
+            local cur = M.pdc.CurrentData
+            if cur ~= nil then cur:Replicate(key) end
+        end)
+    end
+    local function refreshAll()
+        refresh("CosmeticInventory"); refresh("FavoritedCosmetics")
+        refresh("WeaponInventory"); refresh("EquippedEmotes")
+    end
+    local function everyCosmetic(real)
+        local out = {}
+        if type(real) == "table" then for k, v in pairs(real) do out[k] = v end end
+        pcall(function()
+            local cos = Rivals.Cosmetics.Cosmetics
+            if type(cos) ~= "table" then return end
+            for name in pairs(cos) do if out[name] == nil then out[name] = true end end
+        end)
+        return out
+    end
+    local function everyFavorite(real)
+        local out = {}
+        if type(real) == "table" then for k, v in pairs(real) do out[k] = v end end
+        for weapon, marks in pairs(_favOverride) do
+            local merged = {}
+            if type(out[weapon]) == "table" then for k, v in pairs(out[weapon]) do merged[k] = v end end
+            for k, v in pairs(marks) do merged[k] = v end
+            out[weapon] = merged
         end
-    end)
-    return out
-end
-local function weaponInventory(real)
-    local out, seen = {}, {}
-    if type(real) == "table" then
-        for i, entry in pairs(real) do
-            if type(entry) == "table" then
-                local copy = {}
-                for k, v in pairs(entry) do copy[k] = v end
-                if type(copy.Name) == "string" then
-                    seen[copy.Name] = true
-                    mergeChoices(copy, copy.Name)
-                end
-                out[i] = copy
-            else out[i] = entry end
-        end
+        return out
     end
-    if Config.GVUnlockWeapons == true then
-        for _, wname in pairs(ownableWeapons()) do
-            if not seen[wname] then
-                seen[wname] = true
-                table.insert(out, mergeChoices({ Name = wname, Level = 1, XP = 0, IsFavorited = false }, wname))
+    local function mergeChoices(entry, weapon)
+        local slot = GameVisuals.Choices[weapon]
+        if slot == nil then return entry end
+        for _, kind in pairs({ "Skin", "Charm", "Wrap", "Finisher" }) do
+            local sel = slot[kind]
+            if sel ~= nil then entry[kind] = sel end
+        end
+        return entry
+    end
+    local function ownableWeapons()
+        local out = {}
+        pcall(function()
+            if M.shop == nil or type(M.shop.GetReleasedOwnableWeapons) ~= "function" then return end
+            local list = M.shop:GetReleasedOwnableWeapons()
+            if type(list) ~= "table" then return end
+            for _, name in pairs(list) do
+                if type(name) == "string" then table.insert(out, name) end
+            end
+        end)
+        return out
+    end
+    local function weaponInventory(real)
+        local out, seen = {}, {}
+        if type(real) == "table" then
+            for i, entry in pairs(real) do
+                if type(entry) == "table" then
+                    local copy = {}
+                    for k, v in pairs(entry) do copy[k] = v end
+                    if type(copy.Name) == "string" then
+                        seen[copy.Name] = true
+                        mergeChoices(copy, copy.Name)
+                    end
+                    out[i] = copy
+                else out[i] = entry end
             end
         end
+        if Config.GVUnlockWeapons == true then
+            for _, wname in pairs(ownableWeapons()) do
+                if not seen[wname] then
+                    seen[wname] = true
+                    table.insert(out, mergeChoices({ Name = wname, Level = 1, XP = 0, IsFavorited = false }, wname))
+                end
+            end
+        end
+        return out
     end
-    return out
-end
-local function applyMaskFields()
-    if Config.GVUnlockAll == true then _spoof.CosmeticInventory = everyCosmetic
-    else _spoof.CosmeticInventory = nil end
-    if Config.GVUnlockAll == true or next(_favOverride) ~= nil then
-        _spoof.FavoritedCosmetics = everyFavorite
-    else _spoof.FavoritedCosmetics = nil end
-    if next(GameVisuals.Choices) ~= nil or Config.GVUnlockWeapons == true then
-        _spoof.WeaponInventory = weaponInventory
-    else _spoof.WeaponInventory = nil end
-end
-local function maskNeeded()
-    return Config.GVUnlockAll == true or Config.GVUnlockWeapons == true
-        or next(GameVisuals.Choices) ~= nil or next(_favOverride) ~= nil
-end
-local function watchPlayerData()
-    if _maskConn ~= nil then return end
-    pcall(function()
-        local sig = M.pdc.PlayerDataAdded
-        if sig == nil then return end
-        _maskConn = sig:Connect(function()
-            if not maskNeeded() then return end
-            task.defer(function()
-                if maskInstall() then applyMaskFields(); refreshAll() end
+    local function applyMaskFields()
+        if Config.GVUnlockAll == true then _spoof.CosmeticInventory = everyCosmetic
+        else _spoof.CosmeticInventory = nil end
+        if Config.GVUnlockAll == true or next(_favOverride) ~= nil then _spoof.FavoritedCosmetics = everyFavorite
+        else _spoof.FavoritedCosmetics = nil end
+        if next(GameVisuals.Choices) ~= nil or Config.GVUnlockWeapons == true then _spoof.WeaponInventory = weaponInventory
+        else _spoof.WeaponInventory = nil end
+    end
+    local function maskNeeded()
+        return Config.GVUnlockAll == true or Config.GVUnlockWeapons == true or next(GameVisuals.Choices) ~= nil or next(_favOverride) ~= nil
+    end
+    local function watchPlayerData()
+        if _maskConn ~= nil then return end
+        pcall(function()
+            local sig = M.pdc.PlayerDataAdded
+            if sig == nil then return end
+            _maskConn = sig:Connect(function()
+                if not maskNeeded() then return end
+                task.defer(function()
+                    if maskInstall() then applyMaskFields(); refreshAll() end
+                end)
             end)
         end)
-    end)
+    end
+    local function syncMask()
+        applyMaskFields()
+        if not maskNeeded() then maskRemove(); refreshAll(); return true, nil end
+        local ok, why = maskInstall()
+        if not ok then return false, why end
+        watchPlayerData(); refreshAll(); return true, nil
+    end
+    function GameVisuals.setUnlockAll(on)
+        Config.GVUnlockAll = (on == true)
+        local ok, why = syncMask()
+        if ok then note("unlock all " .. tostring(Config.GVUnlockAll)) else note("unlock all: " .. tostring(why)) end
+    end
+    function GameVisuals.setUnlockWeapons(on)
+        Config.GVUnlockWeapons = (on == true)
+        local ok, why = syncMask()
+        if ok then note("unlock weapons " .. tostring(Config.GVUnlockWeapons)) else note("unlock weapons: " .. tostring(why)) end
+    end
+    local function charmMetadata(charmName)
+        if type(charmName) ~= "string" or string.match(charmName, "^Season %d+$") == nil then return nil end
+        return GameVisuals.resolveRankStamp()
+    end
+    local function cloneCosmetic(name, ctype, inverted)
+        local base = nil
+        pcall(function() base = Rivals.Cosmetics.Cosmetics[name] end)
+        if type(base) ~= "table" then return nil end
+        local data = {}
+        for k, v in pairs(base) do data[k] = v end
+        data.Name = name
+        if data.Type == nil then data.Type = ctype end
+        data.Seed = math.random(1, 1000000)
+        local id = enumOf(name)
+        if id ~= nil then data.Enum = id; data.ObjectID = id end
+        if inverted == true then data.Inverted = true end
+        if ctype == "Charm" then
+            local md = charmMetadata(name)
+            if md ~= nil then data.Metadata = md end
+        end
+        return data
+    end
+local function rankOverrideRecord(liveCharm)
+    if Config.GVRankCharmOn ~= true then return nil end
+    local nm = nil
+    if type(liveCharm) == "table" then nm = liveCharm.Name end
+    local want = charmMetadata(nm)
+    if want == nil then return nil end
+    local have = (type(liveCharm) == "table") and liveCharm.Metadata or nil
+    if have ~= nil and have.SeasonELO == want.SeasonELO and have.SeasonLeaderboardRank == want.SeasonLeaderboardRank then return nil end
+    return cloneCosmetic(nm, "Charm")
 end
-local function syncMask()
-    applyMaskFields()
-    if not maskNeeded() then maskRemove(); refreshAll(); return true, nil end
-    local ok, why = maskInstall()
-    if not ok then return false, why end
-    watchPlayerData(); refreshAll(); return true, nil
-end
-
-function GameVisuals.setUnlockAll(on)
-    Config.GVUnlockAll = (on == true)
-    local ok, why = syncMask()
-    if ok then note("unlock all " .. tostring(Config.GVUnlockAll))
-    else note("unlock all: " .. tostring(why)) end
-end
-function GameVisuals.setUnlockWeapons(on)
-    Config.GVUnlockWeapons = (on == true)
-    local ok, why = syncMask()
-    if ok then note("unlock weapons " .. tostring(Config.GVUnlockWeapons))
-    else note("unlock weapons: " .. tostring(why)) end
-end
-
-local function cloneCosmetic(name, ctype, inverted)
-    local base = nil
-    pcall(function() base = Rivals.Cosmetics.Cosmetics[name] end)
-    if type(base) ~= "table" then return nil end
-    local data = {}
-    for k, v in pairs(base) do data[k] = v end
-    data.Name = name
-    if data.Type == nil then data.Type = ctype end
-    data.Seed = math.random(1, 1000000)
-    local id = enumOf(name)
-    if id ~= nil then data.Enum = id; data.ObjectID = id end
-    if inverted == true then data.Inverted = true end
-    return data
-end
-
 local function randomCosmetic(ctype, weapon, inverted)
     local pool = {}
     pcall(function()
@@ -333,35 +376,28 @@ local function randomCosmetic(ctype, weapon, inverted)
             if type(entry) == "table" and entry.Type == ctype and entry.Hidden ~= true then
                 local owned = true
                 pcall(function() owned = Rivals.Cosmetics:OwnsCosmetic(inv, name, weapon) and true or false end)
-                if owned and (ctype ~= "Skin" or entry.ItemName == weapon) then
-                    table.insert(pool, name)
-                end
+                if owned and (ctype ~= "Skin" or entry.ItemName == weapon) then table.insert(pool, name) end
             end
         end
     end)
     if #pool == 0 then return nil end
     return cloneCosmetic(pool[math.random(#pool)], ctype, inverted)
 end
-
 local function resolveSel(weapon, ctype)
     local slot = GameVisuals.Choices[weapon]
     local sel = slot and slot[ctype]
     if sel == nil then return nil end
     if sel.Name == NONE_COSMETIC then return nil end
     if sel.Name == RANDOM_COSMETIC then
-        if sel.Resolved == nil then
-            sel.Resolved = randomCosmetic(ctype, weapon, sel.Inverted)
-        end
+        if sel.Resolved == nil then sel.Resolved = randomCosmetic(ctype, weapon, sel.Inverted) end
         return sel.Resolved
     end
     return sel
 end
-
 local function hasIntent(weapon, ctype)
     local slot = GameVisuals.Choices[weapon]
     return slot ~= nil and slot[ctype] ~= nil
 end
-
 local function buildPayload(weapon, dst, key)
     if hasIntent(weapon, "Skin") then
         local s = resolveSel(weapon, "Skin")
@@ -373,7 +409,6 @@ local function buildPayload(weapon, dst, key)
 end
 local function identityKey(k) return k end
 local HOOKS = {}
-
 local function hookField(tbl, key, make)
     if tbl == nil then return false end
     local orig = nil
@@ -392,17 +427,14 @@ local function hooksRestore()
     for i = #HOOKS, 1, -1 do
         local h = HOOKS[i]
         pcall(function()
-            if h.inherited then h.tbl[h.key] = nil
-            else h.tbl[h.key] = h.orig end
+            if h.inherited then h.tbl[h.key] = nil else h.tbl[h.key] = h.orig end
         end)
         HOOKS[i] = nil
     end
 end
 local function origOf(tbl, key)
     if tbl == nil then return nil end
-    for _, h in pairs(HOOKS) do
-        if h.tbl == tbl and h.key == key then return h.orig end
-    end
+    for _, h in pairs(HOOKS) do if h.tbl == tbl and h.key == key then return h.orig end end
     local fn = nil
     pcall(function() fn = tbl[key] end)
     return fn
@@ -434,7 +466,6 @@ local function styleSerial(serial, weapon)
     end)
     return touched
 end
-
 local _building = nil
 local _oidWeapon, _oidAt = {}, 0
 local function atIdentity2(fn)
@@ -449,9 +480,7 @@ local function atIdentity2(fn)
 end
 local FINISHER_FOLDER = nil
 local function finisherFolder()
-    if FINISHER_FOLDER == nil then
-        pcall(function() FINISHER_FOLDER = ReplicatedStorage.Modules.Finishers end)
-    end
+    if FINISHER_FOLDER == nil then pcall(function() FINISHER_FOLDER = ReplicatedStorage.Modules.Finishers end) end
     return FINISHER_FOLDER
 end
 local function cloneCharacter(model)
@@ -512,14 +541,10 @@ local function playFinisherOnClone(ent, model, mod, isFinal, killer, serial)
     end)
     if not ok then pcall(function() copy:Destroy() end); return false end
     pcall(function()
-        model.Destroying:Once(function()
-            if copy.Parent ~= nil then copy:Destroy() end
-        end)
+        model.Destroying:Once(function() if copy.Parent ~= nil then copy:Destroy() end end)
     end)
     local prevCopy = rawget(_finisherCopies, ent)
-    if prevCopy ~= nil and prevCopy ~= copy and prevCopy.Parent ~= nil then
-        pcall(function() prevCopy:Destroy() end)
-    end
+    if prevCopy ~= nil and prevCopy ~= copy and prevCopy.Parent ~= nil then pcall(function() prevCopy:Destroy() end) end
     rawset(_finisherCopies, ent, copy)
     local fin = nil
     atIdentity2(function()
@@ -534,7 +559,6 @@ local function playFinisherOnClone(ent, model, mod, isFinal, killer, serial)
     if fin == nil then pcall(function() copy:Destroy() end); return false end
     return true
 end
-
 local function hooksInstall()
     resolveModules()
     if Config.GVBirthHook == false then return false, "birth hook disabled in config" end
@@ -555,9 +579,7 @@ local function hooksInstall()
     if hookField(M.cvm, "new", function(orig)
         return function(serial, item)
             local weapon = _building
-            if weapon == nil and item ~= nil then
-                pcall(function() if ownedByUs(item) then weapon = item.Name end end)
-            end
+            if weapon == nil and item ~= nil then pcall(function() if ownedByUs(item) then weapon = item.Name end end) end
             if weapon ~= nil then pcall(styleSerial, serial, weapon) end
             local vm = orig(serial, item)
             if vm ~= nil and weapon ~= nil and resolveSel(weapon, "Wrap") ~= nil then
@@ -582,9 +604,7 @@ local function hooksInstall()
                 weapon = item.Name
                 mine = ownedByUs(item)
             end)
-            if mine and weapon ~= nil and hasIntent(weapon, "Wrap") then
-                return resolveSel(weapon, "Wrap")
-            end
+            if mine and weapon ~= nil and hasIntent(weapon, "Wrap") then return resolveSel(weapon, "Wrap") end
             return orig(vm)
         end
     end) then n = n + 1 end
@@ -661,9 +681,7 @@ local function hooksInstall()
                 if node ~= nil then atIdentity2(function() mod = require(node) end) end
                 model = rawget(ent, "Model")
             end)
-            if type(mod) ~= "table" or type(mod.new) ~= "function" or model == nil then
-                return orig(ent, action, ...)
-            end
+            if type(mod) ~= "table" or type(mod.new) ~= "function" or model == nil then return orig(ent, action, ...) end
             if Config.GVFinisherClone == false then return orig(ent, action, ...) end
             if playFinisherOnClone(ent, model, mod, args[2], args[3], args[4]) then return end
             return orig(ent, action, ...)
@@ -672,7 +690,6 @@ local function hooksInstall()
     if n == 0 then return false, "no hook target resolved" end
     return true, n
 end
-
 local function rebuildOidMap()
     local now = tick()
     if now < _oidAt then return end
@@ -687,12 +704,11 @@ local function rebuildOidMap()
         end
     end)
 end
-
 local _rebuildAt = setmetatable({}, { __mode = "k" })
 local _forceRebuild = false
+local _lastRefusal = {}
 local _rebuildFails = setmetatable({}, { __mode = "k" })
 local _rebuildSeen  = setmetatable({}, { __mode = "k" })
-
 local function liveTriple(vm)
     local name, charm, wrap = nil, nil, nil
     pcall(function()
@@ -716,321 +732,451 @@ local function rebuildPayload(base, vm)
         local s = resolveSel(base, "Skin")
         raw[enumKey("Name")] = (s ~= nil) and s.Name or base
     else raw[enumKey("Name")] = liveName or base end
-    if hasIntent(base, "Charm") then
-        raw[enumKey("Charm")] = resolveSel(base, "Charm")
-    else raw[enumKey("Charm")] = liveCharm end
-    if hasIntent(base, "Wrap") then
-        raw[enumKey("Wrap")] = resolveSel(base, "Wrap")
+    if hasIntent(base, "Charm") then raw[enumKey("Charm")] = resolveSel(base, "Charm")
+    else raw[enumKey("Charm")] = rankOverrideRecord(liveCharm) or liveCharm end
+    if hasIntent(base, "Wrap") then raw[enumKey("Wrap")] = resolveSel(base, "Wrap")
     else raw[enumKey("Wrap")] = liveWrap end
     return raw
 end
-local function payloadKeysAreEnums(raw)
-    for _, k in pairs({ "Name", "Charm", "Wrap" }) do
-        if rawget(raw, k) ~= nil and enumOf(k) ~= k then return false, k end
-    end
-    return true, nil
-end
-local function adoptViewModel(item, fresh, arms)
-    pcall(function() rawset(item, "ViewModel", fresh) end)
-    if arms ~= nil then
-        atIdentity2(function() M.cvm.SetArmsData(fresh, table.unpack(arms, 1, arms.n)) end)
-    end
-    atIdentity2(function() M.cvm.Equip(fresh, true) end)
-end
-local function usableReplacement(fresh, vm)
-    if fresh == nil or fresh == vm then return false end
-    local ok = false
-    pcall(function()
-        ok = (rawget(fresh, "_destroyed") ~= true) and (rawget(fresh, "Model") ~= nil)
-    end)
-    return ok
-end
-local function tryBuild(create, item, serial, vm)
-    local fresh = nil
-    atIdentity2(function() fresh = create(item, serial) end)
-    if fresh == nil then pcall(function() fresh = rawget(item, "ViewModel") end) end
-    if usableReplacement(fresh, vm) then return fresh end
-    return nil
-end
-local function dropViewModel(drop, vm)
-    pcall(function()
-        if rawget(vm, "_destroyed") ~= true then atIdentity2(function() drop(vm) end) end
-    end)
-end
-local function armsDataOf(item)
-    local packed = nil
-    pcall(function()
-        local f = item.ClientFighter
-        if f == nil then return end
-        local get = f.GetArmsData
-        if type(get) ~= "function" then return end
-        packed = table.pack(get(f))
-    end)
-    return packed
-end
-local function rebuildViewModel(item, base, vm)
-    if Config.GVBirthHook == false then return false, "style at construction is off", false end
-    local now = tick()
-    if not _forceRebuild and now < (_rebuildAt[item] or 0) then return false, nil, true end
-    local fails = _rebuildFails[item]
-    if not _forceRebuild and fails ~= nil and fails >= 3 and _rebuildSeen[item] == vm then
-        return false, "constructor keeps refusing", false
-    end
-    local create = origOf(M.ci, "_CreateViewModel")
-    if type(create) ~= "function" then return false, "_CreateViewModel missing", false end
-    local drop = nil
-    pcall(function() drop = M.cvm.Destroy end)
-    if type(drop) ~= "function" then return false, "Destroy missing", false end
-    local equip = nil
-    pcall(function() equip = M.cvm.Equip end)
-    if type(equip) ~= "function" then return false, "Equip missing", false end
-    local raw = rebuildPayload(base, vm)
-    local keysOk, badKey = payloadKeysAreEnums(raw)
-    if not keysOk then return false, "no enum for '" .. tostring(badKey) .. "'", false end
-    _rebuildAt[item] = now + REBUILD_COOLDOWN
-    local arms = armsDataOf(item)
-    local serial = { Data = raw }
-    local prevField = nil
-    pcall(function() prevField = rawget(item, "ViewModel") end)
-    pcall(function() rawset(item, "ViewModel", nil) end)
-    local fresh = tryBuild(create, item, serial, vm)
-    if fresh ~= nil then
-        adoptViewModel(item, fresh, arms)
-        dropViewModel(drop, vm)
-        _rebuildFails[item] = nil; _rebuildSeen[item] = nil
-        return true, nil, false
-    end
-    pcall(function() rawset(item, "ViewModel", prevField) end)
-    _rebuildFails[item] = (fails or 0) + 1
-    _rebuildSeen[item] = vm
-    return false, "constructor refused", false
-end
-local function writeData(obj, raw, base)
-    if obj == nil then return false end
-    local wrote = false
-    for _, key in pairs({ "Name", "Charm", "Wrap" }) do
-        if wants(base, key) then
-            local ok = false
-            pcall(function() obj:SetReplicate(key, raw[key]); ok = true end)
-            if not ok then
-                pcall(function()
-                    local d = rawget(obj, "Data")
-                    if type(d) == "table" then d[key] = raw[key]; ok = true end
-                end)
-            end
-            if ok then wrote = true end
+    local function payloadKeysAreEnums(raw)
+        for _, k in pairs({ "Name", "Charm", "Wrap" }) do
+            if rawget(raw, k) ~= nil and enumOf(k) ~= k then return false, k end
         end
+        return true, nil
     end
-    return wrote
-end
-local function applyWrapLive(vm, wrap)
-    local data = nil
-    pcall(function() data = rawget(vm, "Data") end)
-    if type(data) ~= "table" then return false end
-    local upd = nil
-    pcall(function() upd = M.cvm._UpdateWrap end)
-    if type(upd) ~= "function" then return false end
-    rawset(data, "Wrap", wrap)
-    atIdentity2(function() upd(vm) end)
-    return true
-end
-local function applyToItem(item, base)
-    local vm = nil
-    pcall(function() vm = item.ViewModel end)
-    if vm == nil then return false end
-    local sel = selectionFor(base)
-    if sel == nil then return true end
-    local curName, curCharm, curWrap = liveTriple(vm)
-    if curName == nil then return false end
-    local raw = buildPayload(base, { Name = base }, identityKey)
-    if raw == nil then raw = { Name = base } end
-    if wants(base, "Wrap") and not sameSub(curWrap, raw.Wrap) then
-        applyWrapLive(vm, raw.Wrap)
+    local function adoptViewModel(item, fresh, arms)
+        pcall(function() rawset(item, "ViewModel", fresh) end)
+        if arms ~= nil then atIdentity2(function() M.cvm.SetArmsData(fresh, table.unpack(arms, 1, arms.n)) end) end
+        atIdentity2(function() M.cvm.Equip(fresh, true) end)
     end
-    local needName  = wants(base, "Name")  and curName ~= raw.Name
-    local needCharm = wants(base, "Charm") and not sameSub(curCharm, raw.Charm)
-    if not needName and not needCharm then return true end
-    local rok, rwhy, transient = rebuildViewModel(item, base, vm)
-    writeData(item, raw, base)
-    if transient ~= true then
-        local nowVm = nil
-        pcall(function() nowVm = item.ViewModel end)
-        writeData(nowVm or vm, raw, base)
+    local function usableReplacement(fresh, vm)
+        if fresh == nil or fresh == vm then return false end
+        local ok = false
+        pcall(function() ok = (rawget(fresh, "_destroyed") ~= true) and (rawget(fresh, "Model") ~= nil) end)
+        return ok
     end
-    return true
-end
-local function itemsOf(player)
-    local items = nil
-    pcall(function()
-        local f = Rivals.Fighter:GetFighter(player)
-        if f ~= nil and type(f.Items) == "table" then items = f.Items end
-    end)
-    if items == nil then
+    local function tryBuild(create, item, serial, vm)
+        local fresh = nil
+        atIdentity2(function() fresh = create(item, serial) end)
+        if fresh == nil then pcall(function() fresh = rawget(item, "ViewModel") end) end
+        if usableReplacement(fresh, vm) then return fresh end
+        return nil
+    end
+    local function dropViewModel(drop, vm)
         pcall(function()
-            local map = Rivals.Fighter._player_to_fighter
-            local f = map and map[player]
-            if f ~= nil and type(f.Items) == "table" then items = f.Items end
+            if rawget(vm, "_destroyed") ~= true then atIdentity2(function() drop(vm) end) end
         end)
     end
-    return items
-end
-local function applyToPlayer(player)
-    local items = itemsOf(player)
-    if items == nil then return 0 end
-    local n = 0
-    for _, item in pairs(items) do
-        if type(item) == "table" then
-            local base = nil
-            pcall(function() base = item.Name end)
-            if type(base) == "string" and selectionFor(base) ~= nil then
-                if applyToItem(item, base) then n = n + 1 end
+    local function armsDataOf(item)
+        local packed = nil
+        pcall(function()
+            local f = item.ClientFighter
+            if f == nil then return end
+            local get = f.GetArmsData
+            if type(get) ~= "function" then return end
+            packed = table.pack(get(f))
+        end)
+        return packed
+    end
+    local function rebuildViewModel(item, base, vm)
+        if Config.GVBirthHook == false then return false, "style at construction is off", false end
+        if State and State.RageFiring == true then return false, nil, true end
+        local now = tick()
+        if not _forceRebuild and now < (_rebuildAt[item] or 0) then return false, nil, true end
+        local fails = _rebuildFails[item]
+        if not _forceRebuild and fails ~= nil and fails >= 3 and _rebuildSeen[item] == vm then return false, "constructor keeps refusing", false end
+        local create = origOf(M.ci, "_CreateViewModel")
+        if type(create) ~= "function" then return false, "_CreateViewModel missing", false end
+        local drop = nil
+        pcall(function() drop = M.cvm.Destroy end)
+        if type(drop) ~= "function" then return false, "Destroy missing", false end
+        local equip = nil
+        pcall(function() equip = M.cvm.Equip end)
+        if type(equip) ~= "function" then return false, "Equip missing", false end
+        local raw = rebuildPayload(base, vm)
+        local keysOk, badKey = payloadKeysAreEnums(raw)
+        if not keysOk then return false, "no enum for '" .. tostring(badKey) .. "'", false end
+        _rebuildAt[item] = now + REBUILD_COOLDOWN
+        local arms = armsDataOf(item)
+        local serial = { Data = raw }
+        local prevField = nil
+        pcall(function() prevField = rawget(item, "ViewModel") end)
+        pcall(function() rawset(item, "ViewModel", nil) end)
+        local fresh = tryBuild(create, item, serial, vm)
+        if fresh ~= nil then
+            adoptViewModel(item, fresh, arms)
+            dropViewModel(drop, vm)
+            _rebuildFails[item] = nil; _rebuildSeen[item] = nil
+            return true, nil, false
+        end
+        pcall(function() rawset(item, "ViewModel", prevField) end)
+        _rebuildFails[item] = (fails or 0) + 1
+        _rebuildSeen[item] = vm
+        return false, "constructor refused", false
+    end
+    local function writeData(obj, raw, base)
+        if obj == nil then return false end
+        local wrote = false
+        for _, key in pairs({ "Name", "Charm", "Wrap" }) do
+            if wants(base, key) then
+                local ok = false
+                pcall(function() obj:SetReplicate(key, raw[key]); ok = true end)
+                if not ok then pcall(function()
+                    local d = rawget(obj, "Data")
+                    if type(d) == "table" then d[key] = raw[key]; ok = true end
+                end) end
+                if ok then wrote = true end
+            end
+        end
+        return wrote
+    end
+    local function applyWrapLive(vm, wrap)
+        local data = nil
+        pcall(function() data = rawget(vm, "Data") end)
+        if type(data) ~= "table" then return false end
+        local upd = nil
+        pcall(function() upd = M.cvm._UpdateWrap end)
+        if type(upd) ~= "function" then return false end
+        rawset(data, "Wrap", wrap)
+        atIdentity2(function() upd(vm) end)
+        return true
+    end
+    local function applyToItem(item, base)
+        local vm = nil
+        pcall(function() vm = item.ViewModel end)
+        if vm == nil then return false end
+        local sel = selectionFor(base)
+        if sel == nil then return true end
+        local curName, curCharm, curWrap = liveTriple(vm)
+        if curName == nil then return false end
+        local raw = buildPayload(base, { Name = base }, identityKey)
+        if raw == nil then raw = { Name = base } end
+        if wants(base, "Wrap") and not sameSub(curWrap, raw.Wrap) then applyWrapLive(vm, raw.Wrap) end
+        local needName  = wants(base, "Name")  and curName ~= raw.Name
+        local needCharm = wants(base, "Charm") and not sameSub(curCharm, raw.Charm)
+        if not needName and not needCharm then return true end
+        local rok, rwhy, transient = rebuildViewModel(item, base, vm)
+        writeData(item, raw, base)
+        if transient ~= true then
+            local nowVm = nil
+            pcall(function() nowVm = item.ViewModel end)
+            writeData(nowVm or vm, raw, base)
+        end
+        if transient ~= true then _lastRefusal[base] = nil end
+        if rwhy ~= nil and not rok then _lastRefusal[base] = rwhy end
+        return true
+    end
+    local function itemsOf(player)
+        local items = nil
+        pcall(function()
+            local f = Rivals.Fighter:GetFighter(player)
+            if f ~= nil and type(f.Items) == "table" then items = f.Items end
+        end)
+        if items == nil then
+            pcall(function()
+                local map = Rivals.Fighter._player_to_fighter
+                local f = map and map[player]
+                if f ~= nil and type(f.Items) == "table" then items = f.Items end
+            end)
+        end
+        return items
+    end
+    local function applyToPlayer(player)
+        local items = itemsOf(player)
+        if items == nil then return 0 end
+        local n = 0
+        for _, item in pairs(items) do
+            if type(item) == "table" then
+                local base = nil
+                pcall(function() base = item.Name end)
+                if type(base) == "string" and selectionFor(base) ~= nil then
+                    if applyToItem(item, base) then n = n + 1 end
+                end
+            end
+        end
+        return n
+    end
+    function GameVisuals.apply()
+        if Config.GameVisuals ~= true then return 0 end
+        resolveModules(); rebuildOidMap()
+        local n = applyToPlayer(lp)
+        if Config.GVEveryone == true then
+            for _, p in pairs(Players:GetPlayers()) do if p ~= lp then n = n + applyToPlayer(p) end end
+        end
+        return n
+    end
+    local function noneSlot()
+        return { Skin = { Name = NONE_COSMETIC }, Charm = { Name = NONE_COSMETIC }, Wrap = { Name = NONE_COSMETIC }, Finisher = { Name = NONE_COSMETIC } }
+    end
+    function GameVisuals.restore()
+        for weapon in pairs(GameVisuals.Choices) do GameVisuals.Choices[weapon] = noneSlot() end
+        _forceRebuild = true
+        pcall(GameVisuals.apply)
+        _forceRebuild = false
+        GameVisuals.Choices = {}
+        pcall(syncMask)
+        note("reset")
+        saveSoon()
+    end
+    local _conn, _last, _loaded = nil, 0, false
+    function GameVisuals.enable()
+        Config.GameVisuals = true
+        resolveModules()
+        hooksInstall()
+        syncMask()
+        if _conn ~= nil then return end
+        _conn = RunService.Heartbeat:Connect(function()
+            if Config.GameVisuals ~= true then return end
+            local now = tick()
+            if now - _last < POLL_S then return end
+            _last = now
+            if #HOOKS == 0 and Config.GVBirthHook ~= false then pcall(hooksInstall) end
+            if _captureBound < 2 and Config.GVBirthHook ~= false then pcall(captureInstall) end
+            if maskNeeded() and not maskActive() then pcall(syncMask) end
+            pcall(GameVisuals.apply)
+            if saveDrain then saveDrain() end
+        end)
+    end
+    function GameVisuals.disable()
+        Config.GameVisuals = false
+        if _saveAt ~= nil then _saveAt = nil; pcall(GameVisuals.saveConfig) end
+        _loaded = false
+        if _conn ~= nil then _conn:Disconnect(); _conn = nil end
+        if _maskConn ~= nil then pcall(function() _maskConn:Disconnect() end); _maskConn = nil end
+        captureRestore()
+        for weapon in pairs(GameVisuals.Choices) do GameVisuals.Choices[weapon] = noneSlot() end
+        _forceRebuild = true
+        pcall(applyToPlayer, lp)
+        _forceRebuild = false
+        GameVisuals.Choices = {}
+        hooksRestore()
+        _favOverride = {}
+        _spoof.CosmeticInventory  = nil
+        _spoof.FavoritedCosmetics = nil
+        _spoof.WeaponInventory    = nil
+        maskRemove()
+        note("off")
+    end
+    local CAT = nil
+    local function sortTail(t)
+        local head = table.remove(t, 1)
+        table.sort(t)
+        table.insert(t, 1, head)
+        table.insert(t, 2, "Random")
+    end
+    local function buildCatalog()
+        if CAT ~= nil then return end
+        CAT = { Skin = { "None" }, Charm = { "None" }, Wrap = { "None" }, Finisher = { "None" }, weapons = { "None" }, byWeapon = {}, owner = {} }
+        pcall(function()
+            local cos = Rivals.Cosmetics.Cosmetics
+            if type(cos) ~= "table" then return end
+            for name, entry in pairs(cos) do
+                if type(entry) == "table" and entry.Hidden ~= true then
+                    local t = entry.Type
+                    if t == "Skin" and type(entry.ItemName) == "string" then
+                        local item = entry.ItemName
+                        CAT.owner[name] = item
+                        CAT.owner[item .. " | " .. name] = item
+                        table.insert(CAT.Skin, item .. " | " .. name)
+                        if CAT.byWeapon[item] == nil then
+                            CAT.byWeapon[item] = { "None" }
+                            table.insert(CAT.weapons, item)
+                        end
+                        table.insert(CAT.byWeapon[item], name)
+                    elseif CAT[t] ~= nil then
+                        table.insert(CAT[t], name)
+                    end
+                end
+            end
+        end)
+        sortTail(CAT.Skin); sortTail(CAT.Charm); sortTail(CAT.Wrap); sortTail(CAT.Finisher)
+        local head = table.remove(CAT.weapons, 1)
+        table.sort(CAT.weapons)
+        table.insert(CAT.weapons, 1, head)
+        for _, list in pairs(CAT.byWeapon) do sortTail(list) end
+    end
+    function GameVisuals.listOf(kind) buildCatalog(); return CAT[kind] or { "None" } end
+    function GameVisuals.skinList()  return GameVisuals.listOf("Skin")  end
+    function GameVisuals.charmList() return GameVisuals.listOf("Charm") end
+    function GameVisuals.wrapList()  return GameVisuals.listOf("Wrap")  end
+    function GameVisuals.finisherList() return GameVisuals.listOf("Finisher") end
+    function GameVisuals.weaponList() buildCatalog(); return CAT.weapons end
+    local _weapon = nil
+    GameVisuals.lastWeapon = nil
+    function GameVisuals.setWeapon(name)
+        if name == nil or name == "None" then _weapon = nil else _weapon = name end
+        GameVisuals.lastWeapon = _weapon
+    end
+    local function heldItemName()
+        local base = nil
+        pcall(function()
+            local lf = Rivals.Fighter and Rivals.Fighter.LocalFighter
+            local it = lf and lf.EquippedItem
+            if it ~= nil then base = it.Name end
+        end)
+        if type(base) == "string" then return base end
+        return _weapon
+    end
+    function GameVisuals.setFor(weapon, kind, name, inverted)
+        if type(weapon) ~= "string" or type(kind) ~= "string" then return end
+        buildCatalog()
+        local slot = GameVisuals.Choices[weapon]
+        if slot == nil then slot = {}; GameVisuals.Choices[weapon] = slot end
+        if name == nil or name == "None" or name == NONE_COSMETIC then
+            slot[kind] = { Name = NONE_COSMETIC }
+        elseif name == "Random" or name == RANDOM_COSMETIC then
+            slot[kind] = { Name = RANDOM_COSMETIC, Type = kind, Inverted = inverted == true }
+        else
+            local rec = cloneCosmetic(name, kind, inverted)
+            if rec == nil then note("unknown " .. kind .. ": " .. tostring(name)); return end
+            slot[kind] = rec
+        end
+        GameVisuals.lastWeapon = weapon
+        note(weapon .. " " .. kind .. " = " .. tostring(name))
+        pcall(syncMask)
+        pcall(GameVisuals.apply)
+        saveSoon()
+    end
+    function GameVisuals.setSkin(label)
+        buildCatalog()
+        if label == nil or label == "None" then
+            if _weapon ~= nil then GameVisuals.setFor(_weapon, "Skin", nil) end
+            return
+        end
+        if label == "Random" then
+            local w = _weapon or heldItemName()
+            if w == nil then return end
+            GameVisuals.setFor(w, "Skin", "Random")
+            return
+        end
+        local item = CAT.owner[label]
+        if item == nil then return end
+        local skin = label
+        local bar = string.find(label, " | ", 1, true)
+        if bar ~= nil then skin = string.sub(label, bar + 3) end
+        GameVisuals.setFor(item, "Skin", skin)
+    end
+    function GameVisuals.setOn(kind, name)
+        local base = _weapon or heldItemName()
+        if base == nil then return end
+        local inv = nil
+        if kind == "Wrap" then inv = Config.GVWrapInverted == true end
+        GameVisuals.setFor(base, kind, name, inv)
+    end
+    function GameVisuals.setCharm(name)    GameVisuals.setOn("Charm", name)    end
+    function GameVisuals.setWrap(name)     GameVisuals.setOn("Wrap", name)     end
+    function GameVisuals.setFinisher(name) GameVisuals.setOn("Finisher", name) end
+    function GameVisuals.setWrapInverted(on)
+        Config.GVWrapInverted = (on == true)
+        for _, slot in pairs(GameVisuals.Choices) do
+            local w = slot.Wrap
+            if type(w) == "table" and w.Name ~= NONE_COSMETIC then
+                w.Inverted = Config.GVWrapInverted
+                if type(w.Resolved) == "table" then w.Resolved.Inverted = Config.GVWrapInverted end
+            end
+        end
+        pcall(GameVisuals.apply)
+        saveSoon()
+    end
+    function GameVisuals.summary()
+        local out = {}
+        for weapon, slot in pairs(GameVisuals.Choices) do
+            local bits = {}
+            for _, kind in pairs({ "Skin", "Wrap", "Charm", "Finisher" }) do
+                local v = slot[kind]
+                if v ~= nil and v.Name ~= NONE_COSMETIC then
+                    local shown = tostring(v.Name)
+                    if v.Name == RANDOM_COSMETIC then
+                        shown = "Random"
+                        if type(v.Resolved) == "table" and v.Resolved.Name ~= nil then shown = "Random (" .. tostring(v.Resolved.Name) .. ")" end
+                    end
+                    table.insert(bits, string.lower(kind) .. " " .. shown)
+                end
+            end
+            if #bits > 0 then
+                local line = weapon .. " — " .. table.concat(bits, " · ")
+                local why = _lastRefusal[weapon]
+                if why ~= nil then line = line .. "  (" .. tostring(why) .. ")" end
+                table.insert(out, line)
+            end
+        end
+        table.sort(out)
+        return out
+    end
+end)()
+
+-- =========================================================
+-- UI: SKIN CHANGER
+-- =========================================================
+Library.IsMobile = isMobile
+local okWin, Window = pcall(function()
+    return Library:CreateWindow({ Title='Eclipse | Skins', Center=true, AutoShow=false, TabPadding=8, MenuFadeTime=0.2, NotifySide='Right', Resizable=true, UnlockMouseWhileOpen=true })
+end)
+if not okWin or not Window then return end
+
+local Tab = Window:AddTab('Skins')
+local GL = Tab:AddLeftGroupbox('Skin Changer')
+GL:AddToggle('GameVisuals', { Text='Enable Cosmetics', Default=false,
+    Callback=function(v) if v then GameVisuals.enable() else GameVisuals.disable() end end })
+
+local gvDep = GL:AddDependencyBox()
+gvDep:AddToggle('GVUnlockAll', { Text='Unlock all cosmetics', Default=true,
+    Callback=function(v) pcall(GameVisuals.setUnlockAll, v) end })
+gvDep:AddToggle('GVUnlockWeapons', { Text='Unlock all weapons', Default=false,
+    Callback=function(v) pcall(GameVisuals.setUnlockWeapons, v) end })
+gvDep:AddToggle('GVEveryone', { Text='Apply to everyone', Default=false,
+    Callback=function(v) Config.GVEveryone = v end })
+gvDep:AddButton({ Text='Reset all cosmetics', Func=function() pcall(GameVisuals.restore) end })
+
+gvDep:AddDivider('Manual picker')
+gvDep:AddDropdown('GVWeapon', { Values={'None'}, Default='None', Text='Weapon',
+    Callback=function(v) pcall(GameVisuals.setWeapon, v) end })
+gvDep:AddDropdown('GVSkin', { Values={'None'}, Default='None', Text='Skin',
+    Callback=function(v) pcall(GameVisuals.setSkin, v) end })
+gvDep:AddDropdown('GVCharm', { Values={'None'}, Default='None', Text='Charm',
+    Callback=function(v) pcall(GameVisuals.setCharm, v) end })
+gvDep:AddDropdown('GVWrap', { Values={'None'}, Default='None', Text='Wrap',
+    Callback=function(v) pcall(GameVisuals.setWrap, v) end })
+gvDep:AddDropdown('GVFinisher', { Values={'None'}, Default='None', Text='Finisher',
+    Callback=function(v) pcall(GameVisuals.setFinisher, v) end })
+gvDep:AddToggle('GVWrapInverted', { Text='Invert wrap', Default=false,
+    Callback=function(v) pcall(GameVisuals.setWrapInverted, v) end })
+gvDep:SetupDependencies({ { Toggles.GameVisuals, true } })
+
+local loaded = {}
+for i = 1, 6 do loaded[i] = GL:AddLabel(' ', true) end
+task.spawn(function()
+    local shown = nil
+    while true do
+        task.wait(0.35)
+        local lines = GameVisuals.summary()
+        local joined = table.concat(lines, '\n')
+        if joined ~= shown then
+            shown = joined
+            for i = 1, 6 do pcall(function() loaded[i]:SetText(lines[i] or ' ') end) end
+        end
+    end
+end)
+
+task.spawn(function()
+    local sig = nil
+    while true do
+        task.wait(3)
+        local ok, lists = pcall(function()
+            return { GameVisuals.weaponList(), GameVisuals.skinList(), GameVisuals.charmList(), GameVisuals.wrapList(), GameVisuals.finisherList() }
+        end)
+        if ok and type(lists) == 'table' then
+            local lens = {}
+            for i = 1, 5 do lens[i] = lists[i] and #lists[i] or 0 end
+            local now = table.concat(lens, '/')
+            if now ~= sig then
+                sig = now
+                pcall(function() Options.GVWeapon:SetValues(lists[1]) end)
+                pcall(function() Options.GVSkin:SetValues(lists[2]) end)
+                pcall(function() Options.GVCharm:SetValues(lists[3]) end)
+                pcall(function() Options.GVWrap:SetValues(lists[4]) end)
+                pcall(function() Options.GVFinisher:SetValues(lists[5]) end)
             end
         end
     end
-    return n
-end
-
-function GameVisuals.apply()
-    if Config.GameVisuals ~= true then return 0 end
-    resolveModules(); rebuildOidMap()
-    local n = applyToPlayer(lp)
-    if Config.GVEveryone == true then
-        for _, p in pairs(Players:GetPlayers()) do
-            if p ~= lp then n = n + applyToPlayer(p) end
-        end
-    end
-    return n
-end
-
-local function noneSlot()
-    return { Skin = { Name = NONE_COSMETIC }, Charm = { Name = NONE_COSMETIC },
-             Wrap = { Name = NONE_COSMETIC }, Finisher = { Name = NONE_COSMETIC } }
-end
-
-function GameVisuals.restore()
-    for weapon in pairs(GameVisuals.Choices) do GameVisuals.Choices[weapon] = noneSlot() end
-    _forceRebuild = true
-    pcall(GameVisuals.apply)
-    _forceRebuild = false
-    GameVisuals.Choices = {}
-    pcall(syncMask)
-end
-
-local _conn, _last, _loaded = nil, 0, false
-function GameVisuals.enable()
-    Config.GameVisuals = true
-    resolveModules()
-    hooksInstall()
-    syncMask()
-    if _conn ~= nil then return end
-    _conn = RunService.Heartbeat:Connect(function()
-        if Config.GameVisuals ~= true then return end
-        local now = tick()
-        if now - _last < 0.35 then return end
-        _last = now
-        if #HOOKS == 0 and Config.GVBirthHook ~= false then pcall(hooksInstall) end
-        if _captureBound < 2 and Config.GVBirthHook ~= false then pcall(captureInstall) end
-        if maskNeeded() and not maskActive() then pcall(syncMask) end
-        pcall(GameVisuals.apply)
-    end)
-end
-
-function GameVisuals.disable()
-    Config.GameVisuals = false
-    _loaded = false
-    if _conn ~= nil then _conn:Disconnect(); _conn = nil end
-    if _maskConn ~= nil then pcall(function() _maskConn:Disconnect() end); _maskConn = nil end
-    captureRestore()
-    for weapon in pairs(GameVisuals.Choices) do GameVisuals.Choices[weapon] = noneSlot() end
-    _forceRebuild = true
-    pcall(applyToPlayer, lp)
-    _forceRebuild = false
-    GameVisuals.Choices = {}
-    hooksRestore()
-    _favOverride = {}
-    _spoof.CosmeticInventory  = nil
-    _spoof.FavoritedCosmetics = nil
-    _spoof.WeaponInventory    = nil
-    maskRemove()
-end
-
-local _weapon = nil
-GameVisuals.lastWeapon = nil
-function GameVisuals.setWeapon(name)
-    if name == nil or name == "None" then _weapon = nil else _weapon = name end
-    GameVisuals.lastWeapon = _weapon
-end
-
-local function heldItemName()
-    local base = nil
-    pcall(function()
-        local lf = Rivals.Fighter and Rivals.Fighter.LocalFighter
-        local it = lf and lf.EquippedItem
-        if it ~= nil then base = it.Name end
-    end)
-    if type(base) == "string" then return base end
-    return _weapon
-end
-
-function GameVisuals.setFor(weapon, kind, name, inverted)
-    if type(weapon) ~= "string" or type(kind) ~= "string" then return end
-    local slot = GameVisuals.Choices[weapon]
-    if slot == nil then slot = {}; GameVisuals.Choices[weapon] = slot end
-    if name == nil or name == "None" or name == NONE_COSMETIC then
-        slot[kind] = { Name = NONE_COSMETIC }
-    elseif name == "Random" or name == RANDOM_COSMETIC then
-        slot[kind] = { Name = RANDOM_COSMETIC, Type = kind, Inverted = inverted == true }
-    else
-        local rec = cloneCosmetic(name, kind, inverted)
-        if rec == nil then return end
-        slot[kind] = rec
-    end
-    GameVisuals.lastWeapon = weapon
-    pcall(syncMask)
-    pcall(GameVisuals.apply)
-end
-
-function GameVisuals.setSkin(label)
-    if label == nil or label == "None" then
-        if _weapon ~= nil then GameVisuals.setFor(_weapon, "Skin", nil) end
-        return
-    end
-    if label == "Random" then
-        local w = _weapon or heldItemName()
-        if w == nil then return end
-        GameVisuals.setFor(w, "Skin", "Random")
-        return
-    end
-    local item = string.match(label, "^(.-) %| ")
-    local skin = string.match(label, " | (.*)$") or label
-    if item then
-        GameVisuals.setFor(item, "Skin", skin)
-    end
-end
-
-function GameVisuals.setOn(kind, name)
-    local base = _weapon or heldItemName()
-    if base == nil then return end
-    GameVisuals.setFor(base, kind, name, false)
-end
-function GameVisuals.setCharm(name)    GameVisuals.setOn("Charm", name)    end
-function GameVisuals.setWrap(name)     GameVisuals.setOn("Wrap", name)     end
-function GameVisuals.setFinisher(name) GameVisuals.setOn("Finisher", name) end
-
--- =========================================================
--- PUBLIC API & INIT
--- =========================================================
-_G["EclipseCosmetics"] = {
-    Config = Config,
-    GameVisuals = GameVisuals,
-    enable = function() GameVisuals.enable() end,
-    disable = function() GameVisuals.disable() end,
-    setSkin = function(weapon, skin) GameVisuals.setFor(weapon, "Skin", skin) end,
-    setWrap = function(weapon, wrap) GameVisuals.setFor(weapon, "Wrap", wrap) end,
-    setCharm = function(weapon, charm) GameVisuals.setFor(weapon, "Charm", charm) end,
-    setFinisher = function(weapon, finisher) GameVisuals.setFor(weapon, "Finisher", finisher) end,
-    unlockAll = function(on) GameVisuals.setUnlockAll(on) end,
-    unlockWeapons = function(on) GameVisuals.setUnlockWeapons(on) end,
-}
-
-GameVisuals.enable()
+end)

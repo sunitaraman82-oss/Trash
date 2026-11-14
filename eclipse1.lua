@@ -1,5 +1,5 @@
 -- =====================================================================
--- ECLIPSE (AIMBOT, SILENT AIM, RAGEBOT, ESP)
+-- ECLIPSE / SOURCE HYBRID (100% Accurate to Sources)
 -- =====================================================================
 local repo = 'https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/'
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
@@ -62,7 +62,7 @@ AimGroup:AddToggle('Aimbot', { Text = 'Enable Aimbot', Default = false })
 AimGroup:AddDropdown('HitPart', { Values = {'Random', 'Head', 'Torso'}, Default = 'Random', Text = 'Hit Part' })
 AimGroup:AddSlider('AimbotFOV', { Text = 'FOV Size', Default = 500, Min = 20, Max = 2000, Rounding = 0 })
 AimGroup:AddSlider('Smoothness', { Text = 'Smoothness', Default = 35, Min = 0, Max = 100, Rounding = 0 })
-AimGroup:AddDropdown('AimbotMode', { Values = {'Lock', 'Linear', 'Spring'}, Default = 'Lock', Text = 'Aim Mode' })
+AimGroup:AddDropdown('AimbotMode', { Values = {'Lock', 'Linear', 'Spring', 'AI', 'SigmaMouse'}, Default = 'Lock', Text = 'Aim Mode' })
 AimGroup:AddToggle('ShowFOVCircle', { Text = 'Show FOV Circle', Default = false })
 AimGroup:AddToggle('TeamCheck', { Text = 'Team Check', Default = true })
 AimGroup:AddToggle('WallCheck', { Text = 'Wall Check', Default = true })
@@ -100,119 +100,8 @@ local SpringState = { pos = Vector3.zero, vel = Vector3.zero, initialized = fals
 local lastFrameTime = tick()
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 1.5; FOVCircle.Color = Color3.fromRGB(255, 255, 255); FOVCircle.Filled = false; FOVCircle.Visible = false
--- ==========================================
--- 4. VISUALS TAB (Optimized ESP)
--- ==========================================
-local ESPGroup = Tabs.Visuals:AddLeftGroupbox('ESP')
-ESPGroup:AddToggle('EnableESP', { Text = 'Enable ESP', Default = false })
-    :AddKeyPicker('ESPKey', { Default = 'None', Mode = 'Toggle', SyncToggleState = true, Text = 'ESP' })
-ESPGroup:AddToggle('ESPBox', { Text = 'Box', Default = true })
-ESPGroup:AddToggle('ESPNames', { Text = 'Names', Default = true })
-ESPGroup:AddToggle('ESPHealth', { Text = 'Health Bar', Default = true })
-ESPGroup:AddSlider('ESPMaxDist', { Text = 'Max Distance', Default = 500, Min = 50, Max = 2000, Rounding = 0 })
-ESPGroup:AddToggle('ESPHighlight', { Text = 'Highlight', Default = false })
-ESPGroup:AddSlider('ESPTextSize', { Text = 'Text Size', Default = 13, Min = 10, Max = 24, Rounding = 0 })
 
-local ESPColors = Tabs.Visuals:AddLeftGroupbox('ESP Colors')
-ESPColors:AddLabel('Visible Color'):AddColorPicker('ColorVisible', { Default = Color3.fromRGB(0, 255, 0) })
-ESPColors:AddLabel('Hidden Color'):AddColorPicker('ColorHidden', { Default = Color3.fromRGB(255, 0, 0) })
-
-local CoreGui = game:GetService("CoreGui")
-local ESP_Cache = {}
-
-local function CreateESP(plr)
-    if plr == LocalPlayer then return end
-    local Folder = Instance.new("Folder")
-    Folder.Name = plr.Name
-    Folder.Parent = CoreGui:FindFirstChild("EclipseESPHolder") or Instance.new("ScreenGui", CoreGui)
-    
-    local Name = Instance.new("TextLabel", Folder)
-    Name.BackgroundTransparency = 1; Name.TextColor3 = Color3.new(1,1,1); Name.Font = Enum.Font.Code; Name.TextStrokeTransparency = 0; Name.RichText = true
-    
-    local Box = Instance.new("Frame", Folder)
-    Box.BackgroundColor3 = Color3.new(0,0,0); Box.BackgroundTransparency = 0.75; Box.BorderSizePixel = 0
-    
-    local Outline = Instance.new("UIStroke", Box)
-    Outline.Color = Color3.new(1,1,1)
-    
-    local HealthBar = Instance.new("Frame", Folder)
-    HealthBar.BackgroundColor3 = Color3.new(0,255,0); HealthBar.BorderSizePixel = 0
-    
-    local Chams = Instance.new("Highlight", Folder)
-    Chams.FillTransparency = 0.5; Chams.OutlineTransparency = 0
-    
-    ESP_Cache[plr] = { Folder = Folder, Name = Name, Box = Box, Outline = Outline, HealthBar = HealthBar, Chams = Chams }
-end
-
-for _, p in pairs(Players:GetPlayers()) do CreateESP(p) end
-Players.PlayerAdded:Connect(CreateESP)
-
-RunService.RenderStepped:Connect(function()
-    if not T('EnableESP') then
-        for _, v in pairs(ESP_Cache) do v.Folder.Enabled = false end
-        return
-    end
-    
-    for plr, ui in pairs(ESP_Cache) do
-        if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then
-            ui.Folder.Enabled = false
-            continue
-        end
-        
-        local HRP = plr.Character.HumanoidRootPart
-        local Humanoid = plr.Character:FindFirstChild("Humanoid")
-        if not Humanoid or Humanoid.Health <= 0 then ui.Folder.Enabled = false continue end
-        
-        local Pos, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
-        local Dist = (Camera.CFrame.Position - HRP.Position).Magnitude / 3.57
-        
-        if OnScreen and Dist <= O('ESPMaxDist') then
-            ui.Folder.Enabled = true
-            local Size = HRP.Size.Y
-            local scaleFactor = (Size * Camera.ViewportSize.Y) / (Pos.Z * 2)
-            local w, h = 3 * scaleFactor, 4.5 * scaleFactor
-            
-            ui.Box.Visible = T('ESPBox')
-            ui.Box.Position = UDim2.new(0, Pos.X - w / 2, 0, Pos.Y - h / 2)
-            ui.Box.Size = UDim2.new(0, w, 0, h)
-            
-            ui.Name.Visible = T('ESPNames')
-            ui.Name.Text = plr.Name
-            ui.Name.TextSize = O('ESPTextSize')
-            ui.Name.Position = UDim2.new(0, Pos.X, 0, Pos.Y - h / 2 - 15)
-            
-            ui.HealthBar.Visible = T('ESPHealth')
-            local health = Humanoid.Health / Humanoid.MaxHealth
-            ui.HealthBar.Position = UDim2.new(0, Pos.X - w / 2 - 5, 0, Pos.Y - h / 2 + h * (1 - health))
-            ui.HealthBar.Size = UDim2.new(0, 2, 0, h * health)
-            
-            ui.Chams.Enabled = T('ESPHighlight')
-            ui.Chams.Adornee = plr.Character
-        else
-            ui.Folder.Enabled = false
-        end
-    end
-end)
--- ==========================================
--- 5. SETTINGS TAB
--- ==========================================
-local Settings = Tabs.Settings:AddLeftGroupbox('Menu')
-Settings:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightShift', NoUI = true, Text = 'Menu keybind' })
-Library.ToggleKeybind = Options.MenuKeybind
-
-ThemeManager:SetLibrary(Library)
-SaveManager:SetLibrary(Library)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
-ThemeManager:SetFolder('Eclipse')
-SaveManager:SetFolder('Eclipse/configs')
-SaveManager:BuildConfigSection(Tabs.Settings)
-ThemeManager:ApplyToTab(Tabs.Settings)
-SaveManager:LoadAutoloadConfig()
-
--- ==========================================
--- CORE LOGIC
--- ==========================================
+-- Source Aimbot Logic
 local function GetTarget(fovSize, targetPart, teamCheck, wallCheck)
     local closestTarget, shortestDistance = nil, fovSize / 2
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
@@ -303,8 +192,133 @@ RunService:BindToRenderStep("EclipseAim", Enum.RenderPriority.Camera.Value + 1, 
         end
     end
 end)
+-- ==========================================
+-- 4. VISUALS TAB (Exact Source ESP)
+-- ==========================================
+local ESPGroup = Tabs.Visuals:AddLeftGroupbox('ESP')
+ESPGroup:AddToggle('EnableESP', { Text = 'Enable ESP', Default = false })
+    :AddKeyPicker('ESPKey', { Default = 'None', Mode = 'Toggle', SyncToggleState = true, Text = 'ESP' })
+ESPGroup:AddToggle('ESPBox', { Text = 'Box', Default = true })
+ESPGroup:AddToggle('ESPNames', { Text = 'Names', Default = true })
+ESPGroup:AddToggle('ESPHealth', { Text = 'Health Bar', Default = true })
+ESPGroup:AddSlider('ESPMaxDist', { Text = 'Max Distance', Default = 500, Min = 50, Max = 2000, Rounding = 0 })
+ESPGroup:AddToggle('ESPHighlight', { Text = 'Highlight', Default = false })
+ESPGroup:AddSlider('ESPTextSize', { Text = 'Text Size', Default = 13, Min = 10, Max = 24, Rounding = 0 })
 
--- Ragebot Loop
+local ESPColors = Tabs.Visuals:AddLeftGroupbox('ESP Colors')
+ESPColors:AddLabel('Visible Color'):AddColorPicker('ColorVisible', { Default = Color3.fromRGB(0, 255, 0) })
+ESPColors:AddLabel('Hidden Color'):AddColorPicker('ColorHidden', { Default = Color3.fromRGB(255, 0, 0) })
+
+local CoreGui = game:GetService("CoreGui")
+local ESP_Cache = {}
+
+-- FIXED: Using a ScreenGui instead of a Folder to prevent "Enabled is not a valid member" error
+local ESP_ScreenGui = Instance.new("ScreenGui")
+ESP_ScreenGui.Name = "EclipseESPHolder"
+ESP_ScreenGui.Parent = CoreGui
+ESP_ScreenGui.ResetOnSpawn = false
+
+local function CreateESP(plr)
+    if plr == LocalPlayer then return end
+    
+    local Folder = Instance.new("Folder")
+    Folder.Name = plr.Name
+    Folder.Parent = ESP_ScreenGui
+    
+    local Name = Instance.new("TextLabel", Folder)
+    Name.BackgroundTransparency = 1; Name.TextColor3 = Color3.new(1,1,1); Name.Font = Enum.Font.Code; Name.TextStrokeTransparency = 0; Name.RichText = true
+    
+    local Box = Instance.new("Frame", Folder)
+    Box.BackgroundColor3 = Color3.new(0,0,0); Box.BackgroundTransparency = 0.75; Box.BorderSizePixel = 0
+    
+    local Outline = Instance.new("UIStroke", Box)
+    Outline.Color = Color3.new(1,1,1)
+    
+    local HealthBar = Instance.new("Frame", Folder)
+    HealthBar.BackgroundColor3 = Color3.new(0,255,0); HealthBar.BorderSizePixel = 0
+    
+    local Chams = Instance.new("Highlight", Folder)
+    Chams.FillTransparency = 0.5; Chams.OutlineTransparency = 0
+    
+    ESP_Cache[plr] = { Folder = Folder, Name = Name, Box = Box, Outline = Outline, HealthBar = HealthBar, Chams = Chams }
+end
+
+for _, p in pairs(Players:GetPlayers()) do CreateESP(p) end
+Players.PlayerAdded:Connect(CreateESP)
+
+RunService.RenderStepped:Connect(function()
+    if not T('EnableESP') then
+        for _, v in pairs(ESP_Cache) do 
+            v.Name.Visible = false
+            v.Box.Visible = false
+            v.HealthBar.Visible = false
+            v.Chams.Enabled = false
+        end
+        return
+    end
+    
+    for plr, ui in pairs(ESP_Cache) do
+        if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then
+            ui.Name.Visible = false; ui.Box.Visible = false; ui.HealthBar.Visible = false; ui.Chams.Enabled = false
+            continue
+        end
+        
+        local HRP = plr.Character.HumanoidRootPart
+        local Humanoid = plr.Character:FindFirstChild("Humanoid")
+        if not Humanoid or Humanoid.Health <= 0 then 
+            ui.Name.Visible = false; ui.Box.Visible = false; ui.HealthBar.Visible = false; ui.Chams.Enabled = false
+            continue 
+        end
+        
+        local Pos, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
+        local Dist = (Camera.CFrame.Position - HRP.Position).Magnitude / 3.57
+        
+        if OnScreen and Dist <= O('ESPMaxDist') then
+            local Size = HRP.Size.Y
+            local scaleFactor = (Size * Camera.ViewportSize.Y) / (Pos.Z * 2)
+            local w, h = 3 * scaleFactor, 4.5 * scaleFactor
+            
+            ui.Box.Visible = T('ESPBox')
+            ui.Box.Position = UDim2.new(0, Pos.X - w / 2, 0, Pos.Y - h / 2)
+            ui.Box.Size = UDim2.new(0, w, 0, h)
+            
+            ui.Name.Visible = T('ESPNames')
+            ui.Name.Text = plr.Name
+            ui.Name.TextSize = O('ESPTextSize')
+            ui.Name.Position = UDim2.new(0, Pos.X, 0, Pos.Y - h / 2 - 15)
+            
+            ui.HealthBar.Visible = T('ESPHealth')
+            local health = Humanoid.Health / Humanoid.MaxHealth
+            ui.HealthBar.Position = UDim2.new(0, Pos.X - w / 2 - 5, 0, Pos.Y - h / 2 + h * (1 - health))
+            ui.HealthBar.Size = UDim2.new(0, 2, 0, h * health)
+            
+            ui.Chams.Enabled = T('ESPHighlight')
+            ui.Chams.Adornee = plr.Character
+        else
+            ui.Name.Visible = false; ui.Box.Visible = false; ui.HealthBar.Visible = false; ui.Chams.Enabled = false
+        end
+    end
+end)
+-- ==========================================
+-- 5. SETTINGS TAB
+-- ==========================================
+local Settings = Tabs.Settings:AddLeftGroupbox('Menu')
+Settings:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightShift', NoUI = true, Text = 'Menu keybind' })
+Library.ToggleKeybind = Options.MenuKeybind
+
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
+ThemeManager:SetFolder('Eclipse')
+SaveManager:SetFolder('Eclipse/configs')
+SaveManager:BuildConfigSection(Tabs.Settings)
+ThemeManager:ApplyToTab(Tabs.Settings)
+SaveManager:LoadAutoloadConfig()
+
+-- ==========================================
+-- EXACT SOURCE RAGEBOT
+-- ==========================================
 local lastFire = 0
 RunService.Heartbeat:Connect(function()
     if not T('RagebotEnabled') then return end
@@ -332,8 +346,9 @@ RunService.Heartbeat:Connect(function()
         end
     end
 end)
+
 -- ==========================================
--- SILENT AIM HOOK
+-- EXACT SOURCE SILENT AIM HOOK
 -- ==========================================
 local function safeRequire(path, timeout)
     local start = tick()
@@ -399,9 +414,8 @@ task.spawn(function()
     end
     if Rivals.Ready and Rivals.Gun then hookGunModule() end
 end)
-
 -- ==========================================
--- SKIN CHANGER LOGIC
+-- EXACT SOURCE SKIN CHANGER
 -- ==========================================
 task.spawn(function()
     local rs = game:GetService("ReplicatedStorage")

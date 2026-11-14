@@ -1,8 +1,8 @@
--- fixed by frxcture
 if getgenv().KiciaRebuild and getgenv().KiciaRebuild.Unload then
     pcall(getgenv().KiciaRebuild.Unload)
 end
 if not game:IsLoaded() then game.Loaded:Wait() end
+print("[Kicia] script file executing, PlaceId=" .. tostring(game.PlaceId))
 
 local K: { [string]: any } = { connections = {}, cleanups = {}, destroyed = false }
 getgenv().KiciaRebuild = K
@@ -698,6 +698,10 @@ tbl17.iQ = function()
         look:AddSlider({ Label = "Font Size", Min = 8, Max = 32, Config = P("Settings", "FontSize") })
         look:AddDropdown({ Label = "Text Case", Options = { "Standard", "UPPERCASE", "lowercase" }, Config = P("Settings", "TextCase") })
         look:AddDropdown({ Label = "Text Surround", Options = { "None", "[]", "()", "<>", "{}" }, Config = P("Settings", "TextSurround") })
+look:AddDivider({ Label = "Rank Spoof" })
+look:AddToggle({ Label = "Spoof Rank", Config = P("RankSpoof", "Enabled") })
+look:AddTextBox({ Label = "Rank Text", Config = P("RankSpoof", "Text") })
+look:AddTextBox({ Label = "Rank Icon", Config = P("RankSpoof", "Icon") })
         look:AddDivider({ Label = "Flags" })
         look:AddDropdown({ Label = "Flag Font", Options = fonts, Config = P("Settings", "FlagFont") })
         look:AddSlider({ Label = "Flag Font Size", Min = 6, Max = 24, Config = P("Settings", "FlagFontSize") })
@@ -2092,7 +2096,7 @@ local background = v115.Background
 
 for _, v116 in tbl20, nil, nil do
 local v117 = v115[v116]
-tbl21[v116] = { R = v117.R / background.R, G = v117.G / background.G, B = v117.B / background.B }
+tbl21[v116] = { R = v117.R - background.R, G = v117.G - background.G, B = v117.B - background.B }
 end
 
 local function fn38(I,W)if  v115 [I]==W then return;end; v115 [I]=W;local N= tbl18 [I];if N==nil then return;end;for P in N,nil,nil do local N_17=P._propBindingsByToken[I];if N_17~=nil then for a,a_18 in N_17,nil,nil do a_18.Instance[a_18.Property]=W;end;end;for a,a_19 in P._gradients,nil,nil do if table.find(a_19.Tokens,I)~=nil then a_19.Gradient.Color= fn36 (a_19.Tokens,a_19.Times);end;end;N_17=P._statefulApplyByToken[I];if N_17~=nil then for l,l_20 in N_17,nil,nil do l_20(W);end;end;end;end
@@ -2100,7 +2104,7 @@ local function fn38(I,W)if  v115 [I]==W then return;end; v115 [I]=W;local N= tbl
 local function fn39(arg)
 for _, v116 in tbl20, nil, nil do
 local v117 = tbl21[v116]
-fn38(v116, Color3.new(math.clamp(arg.R * v117.R, v86[186], 1), math.clamp(arg.G * v117.G, 0, 1), math.clamp(arg.B * v117.B, 0, 1)))
+fn38(v116, Color3.new(math.clamp(arg.R + v117.R, v86[186], 1), math.clamp(arg.G + v117.G, 0, 1), math.clamp(arg.B + v117.B, 0, 1)))
 end
 end
 
@@ -4909,11 +4913,13 @@ textBox.ClearTextOnFocus = false
 textBox.FontFace = v117.SemiBold
 textBox.TextColor3 = v122.get("TextColor")
 textBox.Text = ""
-textBox.AnchorPoint = Vector2.new(v86[186], v86[101])
+textBox.AnchorPoint = Vector2.new(0, 0)
 textBox.BorderSizePixel = 0
 textBox.BackgroundTransparency = 1
-textBox.Position = UDim2.new(0, v86[175], 0.5, 0)
-textBox.AutomaticSize = Enum.AutomaticSize.XY
+textBox.Position = UDim2.new(0, 0, 0, 0)
+textBox.Size = UDim2.new(1, 0, 1, 0)
+textBox.AutomaticSize = Enum.AutomaticSize.None
+textBox.TextXAlignment = Enum.TextXAlignment.Left
 textBox.TextSize = v86[13]
 textBox.Selectable = false
 textBox.Active = true
@@ -4952,6 +4958,12 @@ uiPadding.Parent = textBox
 instance3 = nil
 end
 
+frame.Active = true
+frame.InputBegan:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+task.defer(function() textBox:CaptureFocus() end)
+end
+end)
 return frame, textBox, instance3
 end
 
@@ -5787,7 +5799,30 @@ v118.connectClick(trove, v135, function()
 arg5.RemoveStop()
 end)
 
-local function repaint(...) end
+local function repaint(snap)
+local hueColor = Color3.fromHSV(arg3.Hue, 1, 1)
+frame4.BackgroundColor3 = hueColor
+frame7.Position = UDim2.new(arg3.Sat, 0, 1 - arg3.Val, 0)
+frame7.BackgroundColor3 = arg3.Color
+instance8.Position = UDim2.new(0.5, 0, arg3.Hue, 0)
+frame14.Position = UDim2.new(0.5, 0, arg3.Alpha, 0)
+frame14.BackgroundColor3 = arg3.Color
+instance10.BackgroundColor3 = arg3.Color
+if arg3.Mode == v86[90] then
+_fn42(snap)
+else
+frame21.BackgroundColor3 = arg3.Color
+end
+if v132 ~= nil and not v132:IsFocused() then
+v132.Text = arg3.Color:ToHex()
+end
+if v131 ~= nil and not v131:IsFocused() then
+v131.Text = tostring(math.floor((1 - arg3.Alpha) * 100 + 0.5))
+end
+if _v133 ~= nil then
+_v133.BackgroundColor3 = arg3.Color
+end
+end
 tbl22.Repaint = repaint
 
 return {
@@ -9488,8 +9523,10 @@ instance.AnchorPoint = Vector2.new(0, 0.5)
 instance.BorderSizePixel = 0
 instance.BackgroundTransparency = v86[63]
 instance.Position = UDim2.new(0, 5, v86[101], 0)
-instance.AutomaticSize = Enum.AutomaticSize.XY
+instance.Size = UDim2.new(1, -10, 1, 0)
+instance.AutomaticSize = Enum.AutomaticSize.None
 instance.TextSize = v86[13]
+instance.TextXAlignment = Enum.TextXAlignment.Left
 instance.Selectable = v86[153]
 instance.Active = v86[34]
 arg2.Batch:Bind(instance, "TextColor3", "TextColor")
@@ -9499,6 +9536,12 @@ uiPadding.PaddingRight = UDim.new(0, v86[175])
 uiPadding.PaddingLeft = UDim.new(0, 1)
 uiPadding.Parent = instance
 arg._rt = { Outline = frame, Input = instance }
+frame.Active = true
+arg2.Trove:Connect(frame.InputBegan, function(input)
+if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+task.defer(function() instance:CaptureFocus() end)
+end
+end)
 local tweenInfo = TweenInfo.new(0.05, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, v86[186], false, 0)
 
 local function fn36(arg3)
@@ -9506,7 +9549,12 @@ if instance.TextSize ~= 16 then
 instance.TextSize = 16
 end
 
-local x = instance.AbsoluteSize.X
+local _tbp = Instance.new("GetTextBoundsParams")
+_tbp.Text = instance.Text
+_tbp.Size = 16
+_tbp.Font = instance.FontFace
+_tbp.Width = 100000
+local x = game:GetService("TextService"):GetTextBoundsAsync(_tbp).X
 
 if arg.MaxWidth < x then
 instance.TextSize = math.max(math.floor(v86[13] * arg.MaxWidth / x), 8)
@@ -11693,6 +11741,7 @@ arg3(v127.Container)
 end
 
 arg:_UpdateLayout()
+v126 = v127
 return v127
 end
 
@@ -17198,7 +17247,7 @@ local v121 = v120:Add(Instance.new("ScreenGui"))
 v121.IgnoreGuiInset = true
 v121.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 v121.DisplayOrder = displayOrder
-v121.Parent = gethui()
+v121.Parent = K.hudParent()
 local frame = Instance.new("Frame")
 frame.BackgroundTransparency = 1
 frame.BorderSizePixel = 0
@@ -17227,6 +17276,7 @@ Offset = v118.appendPath(arg2, "Offset"),
 ThemeAccent = v118.appendPath(arg3, "Accent"),
 ThemeBackground = v118.appendPath(arg3, "Background"),
 ThemeText = v118.appendPath(arg3, "TextColor"),
+TextColor = v118.appendPath(arg3, "TextColor"),
 },
 _resolveFont = arg4,
 _container = frame,
@@ -17301,7 +17351,9 @@ return tbl20
 end
 
 index2._Get = function(arg, arg2)
-return arg._config:Get(arg._pathByKey[arg2], true)
+local _p = arg._pathByKey[arg2]
+if _p == nil then return nil end
+return arg._config:Get(_p, true)
 end
 
 index2._SideSpec = function(arg)
@@ -17796,8 +17848,30 @@ end
 return { Page = v120, Grid = v121 }
 end
 
+local function KiciaQueueTeleport()
+    local qf = K.fn("queue_on_teleport") or K.fn("queueonteleport")
+    if type(qf) ~= "function" then return end
+    local best, bestLen = nil, -1
+    for level = 0, 40 do
+        local ok, info = pcall(debug.getinfo, level, "S")
+        if not ok or type(info) ~= "table" then break end
+        local s = info.source or info.short_src or ""
+        if type(s) == "string" and s:sub(1, 1) == "@" then
+            local ok2, content = pcall(readfile, s:sub(2))
+            if ok2 and type(content) == "string" and #content > bestLen then
+                best, bestLen = content, #content
+            end
+        end
+    end
+    if best ~= nil then pcall(qf, best) end
+end
+
 local function fn40(arg, arg2, arg3)
-arg:AddToggle({ Label = "Re-run After Teleport", Config = arg3 })
+local t = arg:AddToggle({ Label = "Re-run After Teleport", Config = arg3 })
+pcall(function() t:OnChanged(function(v) if v then KiciaQueueTeleport() end end) end)
+pcall(function()
+if arg2:GetConfig():Get(arg3) then KiciaQueueTeleport() end
+end)
 local stateData = arg2:GetStateData()
 
 arg:AddToggle({
@@ -18949,13 +19023,34 @@ if v116 == nil then
 return nil
 end
 else
-v116 = arg:WaitForChild(v115, math.huge)
+local _t0 = os.clock()
+while true do
+v116 = arg:WaitForChild(v115, 5)
+if v116 ~= nil then
+break
+end
+print("[Kicia] waiting for " .. arg:GetFullName() .. " -> " .. tostring(v115) .. " (" .. math.floor(os.clock() - _t0) .. "s)")
+if os.clock() - _t0 > 60 then
+error("[Kicia] timed out waiting for " .. arg:GetFullName() .. " -> " .. tostring(v115) .. ". Wrong game? This script is built for Rivals.", 2)
+end
+end
 end
 
 arg = cloneref(v116)
 end
 
 if arg3 then
+local _ok, _res = pcall(require, arg)
+if _ok then
+return _res
+end
+for _try = 1, 4 do
+task.wait(2)
+_ok, _res = pcall(require, arg)
+if _ok then
+return _res
+end
+end
 return require(arg)
 end
 return cloneref(arg)
@@ -19743,7 +19838,7 @@ return bf.c
 end
 end
 do -- bg
-local function fn35() tbl17 .a0();local I,W= tbl17 .i().atomic, tbl17 .d();local function l()return{Enabled=false,Kind="Shimmer",Shimmer={Speed=0.65,Color=Color3.fromRGB(40,40,40)},Perimeter={Speed=1,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(0,200,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(255,255,255))})},PingPong={Speed=1,BackgroundColor=Color3.fromRGB(20,20,20),MainColor=Color3.fromRGB(0,200,255),Rotation=0}};end;local N={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Name={Enabled=false,Color=Color3.fromRGB(255,255,255),Transparency=0,Animation=l()},Box={Enabled=false,Style="Full",Color=Color3.fromRGB(255,255,255),Animation=l()},FilledBox={Enabled=false,Color=ColorSequence.new(Color3.new(1,1,1)),Transparency=0.8,Animate=false},BoxImage={Enabled=false,Name="",Transparency=0},HealthBar={Enabled=false,Color=ColorSequence.new(Color3.new(1,1,1),Color3.new(0,1,0)),ColorMode="Reactive",Animate=false},HealthNumber={Enabled=false,Color=Color3.new(1,1,1)},HeldWeapon={Enabled=false,Color=Color3.new(1,1,1),Transparency=0,Animation=l()},AmmoBar={Enabled=false,Color=ColorSequence.new(Color3.new(1,1,1),Color3.new(0,1,0)),ColorMode="Reactive",Animate=false},Distance={Enabled=false,Color=Color3.new(1,1,1),Animation=l()},Rank={Enabled=false,Color=Color3.new(1,1,1),Animation=l()},Winstreak={Enabled=false,Color=Color3.new(1,1,1),Animation=l()},Deflecting={Enabled=false,Color=Color3.new(1,1,1),Transparency=0,Animation=l()},Chams={Enabled=false,Kind="Legacy",InnerColor=Color3.fromRGB(255,0,0),InnerTransparency=0,OutlineColor=Color3.fromRGB(100,0,0),OutlineTransparency=0.6,Glow=false,GlowColor=Color3.fromRGB(255,0,0)},Skeleton={Enabled=false,Color=ColorSequence.new(Color3.new(1,1,1)),Transparency=0,Thickness=1},HeadMarker={Enabled=false,Shape="Cross",Filled=true,Outline=false,Color=Color3.fromRGB(255,80,80),Transparency=0,OutlineColor=Color3.new(0,0,0),OutlineTransparency=0},Tracer={Enabled=false,Color=ColorSequence.new(Color3.new(1,1,1)),Transparency=0,Thickness=1,Origin="Bottom",Target="Feet",Outline=false,OutlineColor=Color3.new(0,0,0),OutlineTransparency=0,OutlineThickness=1}};return{Esp={Main={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Mode="Static"},Enemy=N,Team=W(N),Settings={UseDisplayName=false,Font="Inconsolata",FlagFont="Inconsolata",FontSize=16,FlagFontSize=12,TextCase="Standard",FlagTextCase="UPPERCASE",OverrideRectSize={Enabled=false,Width=1,Height=1},Spacing={Left=1,Top=1,Right=1,Bottom=1},TextSurround="None",FlagTextSurround="None",DistanceScaling=false,DistanceScalingRef=50}},SoundVisualizer={Enabled=false,Source="All",Types=I({Footsteps=true,Other=true}),MinVolume=0,Footsteps={Mode="Circle",UseLoudnessColor=true,Color=Color3.fromRGB(0,255,100)},Other={Mode="Origin",UseLoudnessColor=true,Color=Color3.fromRGB(0,200,255)}}};end
+local function fn35() tbl17 .a0();local I,W= tbl17 .i().atomic, tbl17 .d();local function l()return{Enabled=false,Kind="Shimmer",Shimmer={Speed=0.65,Color=Color3.fromRGB(40,40,40)},Perimeter={Speed=1,Color=ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255,255,255)),ColorSequenceKeypoint.new(0.5,Color3.fromRGB(0,200,255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(255,255,255))})},PingPong={Speed=1,BackgroundColor=Color3.fromRGB(20,20,20),MainColor=Color3.fromRGB(0,200,255),Rotation=0}};end;local N={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Name={Enabled=false,Color=Color3.fromRGB(255,255,255),Transparency=0,Animation=l()},Box={Enabled=false,Style="Full",Color=Color3.fromRGB(255,255,255),Animation=l()},FilledBox={Enabled=false,Color=ColorSequence.new(Color3.new(1,1,1)),Transparency=0.8,Animate=false},BoxImage={Enabled=false,Name="",Transparency=0},HealthBar={Enabled=false,Color=ColorSequence.new(Color3.new(1,1,1),Color3.new(0,1,0)),ColorMode="Reactive",Animate=false},HealthNumber={Enabled=false,Color=Color3.new(1,1,1)},HeldWeapon={Enabled=false,Color=Color3.new(1,1,1),Transparency=0,Animation=l()},AmmoBar={Enabled=false,Color=ColorSequence.new(Color3.new(1,1,1),Color3.new(0,1,0)),ColorMode="Reactive",Animate=false},Distance={Enabled=false,Color=Color3.new(1,1,1),Animation=l()},Rank={Enabled=false,Color=Color3.new(1,1,1),Animation=l()},Winstreak={Enabled=false,Color=Color3.new(1,1,1),Animation=l()},Deflecting={Enabled=false,Color=Color3.new(1,1,1),Transparency=0,Animation=l()},Chams={Enabled=false,Kind="Legacy",InnerColor=Color3.fromRGB(255,0,0),InnerTransparency=0,OutlineColor=Color3.fromRGB(100,0,0),OutlineTransparency=0.6,Glow=false,GlowColor=Color3.fromRGB(255,0,0)},Skeleton={Enabled=false,Color=ColorSequence.new(Color3.new(1,1,1)),Transparency=0,Thickness=1},HeadMarker={Enabled=false,Shape="Cross",Filled=true,Outline=false,Color=Color3.fromRGB(255,80,80),Transparency=0,OutlineColor=Color3.new(0,0,0),OutlineTransparency=0},Tracer={Enabled=false,Color=ColorSequence.new(Color3.new(1,1,1)),Transparency=0,Thickness=1,Origin="Bottom",Target="Feet",Outline=false,OutlineColor=Color3.new(0,0,0),OutlineTransparency=0,OutlineThickness=1}};return{Esp={Main={Enabled=false,Keybind={State=false,Kind="Always",Bind=nil,ShowInList=true,Invisible=false},Mode="Static"},Enemy=N,Team=W(N),Settings={UseDisplayName=false,Font="Inconsolata",FlagFont="Inconsolata",FontSize=16,FlagFontSize=12,TextCase="Standard",FlagTextCase="UPPERCASE",OverrideRectSize={Enabled=false,Width=1,Height=1},Spacing={Left=1,Top=1,Right=1,Bottom=1},TextSurround="None",FlagTextSurround="None",DistanceScaling=false,DistanceScalingRef=50},RankSpoof={Enabled=false,Text="Radiant",Icon="★"}},SoundVisualizer={Enabled=false,Source="All",Types=I({Footsteps=true,Other=true}),MinVolume=0,Footsteps={Mode="Circle",UseLoudnessColor=true,Color=Color3.fromRGB(0,255,100)},Other={Mode="Origin",UseLoudnessColor=true,Color=Color3.fromRGB(0,200,255)}}};end
 
 tbl17.bg = function()
 local bg = tbl17.cache.bg
@@ -19801,7 +19896,7 @@ return bj.c
 end
 end
 do -- bk
-local function fn35() tbl17 .a9();return{ItemModifiers={NoMotion=false,NoCameraShake=false,NoCameraSway=false,NoShootAnimation=false,NoSprintAnimation=false,NoEquipAnimation=false,NoReloadAnimation=false,NoSpread=false,AimCooldown={Enabled=false,Percentage=50},Recoil={Enabled=false,Percentage=75},FireCooldown={Enabled=false,Percentage=25},AimSpeed={Enabled=false,Percentage=300},MeleeCooldown={Enabled=false,Percentage=25},DashCooldown={Enabled=false,Percentage=25},ExtendMeleeRange={Enabled=false,Range=10},AutomaticWeapon=false,InfiniteDoubleJumps=false,AlwaysBackstab=false,GrenadeFuse={Enabled=false,ExplodeOn="Impact",RemoveFuse=false}},BulletTracers={Enabled=false,Color=Color3.fromRGB(120,220,255),Width=0.06,Lifetime=0.6,FadeTime=0.35,Style="Beam",TextureLength=4,TextureSpeed=1,Emission=1,Glow=1,Expand=true,ExpandSpeed=18,ExpandDamper=0.7},ViewModelOffset={Enabled=false,X=0,Y=0,Z=0,Pitch=0,Yaw=0,Roll=0},Chams={Character={Enabled=false,Material="Ghost",Color=Color3.fromRGB(255,255,255),Transparency=0,StripTextures=false},Arms={Enabled=false,Material="Ghost",Color=Color3.fromRGB(255,255,255),Transparency=0,StripTextures=true},Item={Enabled=false,Material="Ghost",Color=Color3.fromRGB(255,255,255),Transparency=0,StripTextures=false}},ViewModelHighlight={Arms={Enabled=false,AlwaysOnTop=false,FillColor=Color3.fromRGB(255,255,255),FillTransparency=0.5,OutlineColor=Color3.fromRGB(255,255,255),OutlineTransparency=0},Item={Enabled=false,AlwaysOnTop=false,FillColor=Color3.fromRGB(255,255,255),FillTransparency=0.5,OutlineColor=Color3.fromRGB(255,255,255),OutlineTransparency=0}},ViewModelWireframe={Arms={Enabled=false,Color=Color3.fromRGB(255,255,255),Width=0.0025},Item={Enabled=false,Color=Color3.fromRGB(255,255,255),Width=0.0025}},PlayerHit={Enabled=false,Sound={Enabled=false,DisableGameSound=false,HeadName=nil,BodyName=nil,HeadVolume=1,HeadPitch=1,BodyVolume=1,BodyPitch=1},Notification={Enabled=false,Text="Hit %DNAME% (%NAME%) for %DMG% in %PART%"},Chams={Enabled=false,Color=Color3.fromRGB(255,0,0),Transparency=0,Duration=0.8,Material="Ghost"},HitFlash={Enabled=false,Color=Color3.fromRGB(90,170,255),Duration=1.35}},PlayerElimination={Enabled=false,Sound={Enabled=false,Name=nil,Volume=1,Pitch=1},Notification={Enabled=false,Text="Eliminated %DNAME% (%NAME%)"},Chams={Enabled=false,Color=Color3.fromRGB(255,0,0),Transparency=0,Duration=0.8,Material="Ghost"},KillFlash={Enabled=false,Color=Color3.fromRGB(90,170,255),Duration=1.35}}};end
+local function fn35() tbl17 .a9();return{ItemModifiers={NoMotion=false,NoCameraShake=false,NoCameraSway=false,NoShootAnimation=false,NoSprintAnimation=false,NoEquipAnimation=false,NoReloadAnimation=false,NoSpread=false,AimCooldown={Enabled=false,Percentage=50},Recoil={Enabled=false,Percentage=75},FireCooldown={Enabled=false,Percentage=25},AimSpeed={Enabled=false,Percentage=300},MeleeCooldown={Enabled=false,Percentage=25},DashCooldown={Enabled=false,Percentage=25},ExtendMeleeRange={Enabled=false,Range=10},InfiniteDoubleJumps=false,AlwaysBackstab=false,FastShoot=false,FastProjectile=false,FullAuto=false,FireRate={Enabled=false,Percentage=100},GrenadeFuse={Enabled=false,ExplodeOn="Impact",RemoveFuse=false}},BulletTracers={Enabled=false,Color=Color3.fromRGB(120,220,255),Width=0.06,Lifetime=0.6,FadeTime=0.35,Style="Beam",TextureLength=4,TextureSpeed=1,Emission=1,Glow=1,Expand=true,ExpandSpeed=18,ExpandDamper=0.7},ViewModelOffset={Enabled=false,X=0,Y=0,Z=0,Pitch=0,Yaw=0,Roll=0},Chams={Character={Enabled=false,Material="Ghost",Color=Color3.fromRGB(255,255,255),Transparency=0,StripTextures=false},Arms={Enabled=false,Material="Ghost",Color=Color3.fromRGB(255,255,255),Transparency=0,StripTextures=true},Item={Enabled=false,Material="Ghost",Color=Color3.fromRGB(255,255,255),Transparency=0,StripTextures=false}},ViewModelHighlight={Arms={Enabled=false,AlwaysOnTop=false,FillColor=Color3.fromRGB(255,255,255),FillTransparency=0.5,OutlineColor=Color3.fromRGB(255,255,255),OutlineTransparency=0},Item={Enabled=false,AlwaysOnTop=false,FillColor=Color3.fromRGB(255,255,255),FillTransparency=0.5,OutlineColor=Color3.fromRGB(255,255,255),OutlineTransparency=0}},ViewModelWireframe={Arms={Enabled=false,Color=Color3.fromRGB(255,255,255),Width=0.0025},Item={Enabled=false,Color=Color3.fromRGB(255,255,255),Width=0.0025}},PlayerHit={Enabled=false,Sound={Enabled=false,DisableGameSound=false,HeadName=nil,BodyName=nil,HeadVolume=1,HeadPitch=1,BodyVolume=1,BodyPitch=1},Notification={Enabled=false,Text="Hit %DNAME% (%NAME%) for %DMG% in %PART%"},Chams={Enabled=false,Color=Color3.fromRGB(255,0,0),Transparency=0,Duration=0.8,Material="Ghost"},HitFlash={Enabled=false,Color=Color3.fromRGB(90,170,255),Duration=1.35}},PlayerElimination={Enabled=false,Sound={Enabled=false,Name=nil,Volume=1,Pitch=1},Notification={Enabled=false,Text="Eliminated %DNAME% (%NAME%)"},Chams={Enabled=false,Color=Color3.fromRGB(255,0,0),Transparency=0,Duration=0.8,Material="Ghost"},KillFlash={Enabled=false,Color=Color3.fromRGB(90,170,255),Duration=1.35}}};end
 
 tbl17.bk = function()
 local bk = tbl17.cache.bk
@@ -22890,17 +22985,57 @@ local GuiNameSpoofer = v115.new("player_spoofer.GuiNameSpoofer")
 local tbl18 = {}
 local tbl19 = {}
 local playerIdentities = arg._playerIdentities
-local function fn36(...) end
+local function fn36()
+table.clear(tbl19)
+for _, _p in ipairs(game:GetService("Players"):GetPlayers()) do
+table.insert(tbl19, { Player = _p, Kind = "Name", Name = _p.Name })
+table.insert(tbl19, { Player = _p, Kind = "DisplayName", Name = _p.DisplayName })
+end
+end
 local function fn37(I,W)if W=="Name"then return  playerIdentities :GetPresented(I);end;return  playerIdentities :GetPresentedDisplay(I);end
 local function fn38(l,I,W)local N,P,a={},1,0;while true do local e,c=l:find(I,P,true);if e==nil or c==nil then break;end;if P<e then table.insert(N,l:sub(P,e-1));end;table.insert(N,W);a+=1;P=c+1;end;if a==0 then return l,0;end;if P<=#l then table.insert(N,l:sub(P));end;return table.concat(N),a;end
-local function _fn39(I)local W={};local N=I;for I,P in  tbl19 ,nil,nil do I= fn37 (P.Player,P.Kind);local a,e= fn38 (N,P.Name,I);if e>0 then W[P.Player]=true;N=a;end;end;return W,N;end
-local function fn40(...) end
-local function fn41(...) end
-local function _fn42(I,W)local N= tbl18 [I];if N==nil then return;end; tbl18 [I]=nil;N.TextChangedConnection:Disconnect();N.DestroyingConnection:Disconnect();if W and N.Tracked~=nil then  fn41 (I,N.Tracked);end;end
-local function fn43(...) end
+local function _fn39(I)local W={};local N=I;for _, P in ipairs(tbl19) do local _r= fn37 (P.Player,P.Kind);local a,e= fn38 (N,P.Name,_r);if e>0 then W[P.Player]=true;N=a;end;end;return W,N;end
+local function fn40(label)
+if label == nil then return end
+pcall(function()
+local N = tbl18[label]
+if N == nil then
+fn43(label)
+return
+end
+local _orig = (N.Tracked and N.Tracked.OriginalText) or label.Text
+_fn42(label, false)
+label.Text = _orig
+fn43(label)
+end)
+end
+local function fn41(label, tracked)
+if tracked ~= nil and tracked.OriginalText ~= nil and tracked.SpoofedText ~= tracked.OriginalText and label.Text == tracked.SpoofedText then
+label.Text = tracked.OriginalText
+end
+end
+local function _fn42(I,W)local N= tbl18 [I];if N==nil then return;end; tbl18 [I]=nil;if N.TextChangedConnection~=nil then N.TextChangedConnection:Disconnect();end;if N.DestroyingConnection~=nil then N.DestroyingConnection:Disconnect();end;if W and N.Tracked~=nil then  fn41 (I,N.Tracked);end;end
+local function fn43(label)
+_fn42(label, false)
+local _affected, _newText = _fn39(label.Text)
+local _entry = { Tracked = { PlayerSet = _affected, OriginalText = label.Text, SpoofedText = _newText } }
+if _newText ~= label.Text then
+label.Text = _newText
+end
+_entry.TextChangedConnection = label:GetPropertyChangedSignal("Text"):Connect(function()
+if label.Text == _entry.Tracked.SpoofedText then return end
+fn43(label)
+end)
+_entry.DestroyingConnection = label.Destroying:Connect(function()
+_fn42(label, false)
+end)
+tbl18[label] = _entry
+end
 fn36()
 
+local _roots = {}
 v116(GuiNameSpoofer, function(arg2, arg3)
+table.insert(_roots, arg2)
 for _, v118 in arg2:QueryDescendants("TextLabel,TextButton") do
 fn43(v118)
 end
@@ -22909,11 +23044,68 @@ arg3:Connect(arg2.DescendantAdded, function(arg4)
 if arg4:IsA("TextLabel") or arg4:IsA("TextButton") then
 fn43(arg4)
 end
+pcall(function()
+for _, _d in ipairs(arg4:GetDescendants()) do
+if _d:IsA("TextLabel") or _d:IsA("TextButton") then
+fn43(_d)
+end
+end
 end)
 end)
+end)
+local _ppg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+if _ppg ~= nil then
+GuiNameSpoofer:Connect(_ppg.DescendantAdded, function(arg4)
+if arg4:IsA("TextLabel") or arg4:IsA("TextButton") then
+fn43(arg4)
+end
+pcall(function()
+for _, _d in ipairs(arg4:GetDescendants()) do
+if _d:IsA("TextLabel") or _d:IsA("TextButton") then
+fn43(_d)
+end
+end
+end)
+end)
+end
+local _cg = game:GetService("CoreGui")
+GuiNameSpoofer:Connect(_cg.DescendantAdded, function(arg4)
+if arg4:IsA("TextLabel") or arg4:IsA("TextButton") then
+fn43(arg4)
+end
+pcall(function()
+for _, _d in ipairs(arg4:GetDescendants()) do
+if _d:IsA("TextLabel") or _d:IsA("TextButton") then
+fn43(_d)
+end
+end
+end)
+end)
+local function _rescanAll()
+for _, _r in ipairs(_roots) do
+pcall(function()
+for _, _l in ipairs(_r:QueryDescendants("TextLabel,TextButton")) do
+fn43(_l)
+end
+end)
+end
+if _ppg ~= nil then
+pcall(function()
+for _, _l in ipairs(_ppg:QueryDescendants("TextLabel,TextButton")) do
+fn43(_l)
+end
+end)
+end
+pcall(function()
+for _, _l in ipairs(_cg:QueryDescendants("TextLabel,TextButton")) do
+fn43(_l)
+end
+end)
+end
 
 GuiNameSpoofer:Connect(playerIdentities.IdentityRegistered, function()
 fn36()
+_rescanAll()
 
 for k in tbl18, nil, nil do
 fn40(k)
@@ -22921,6 +23113,7 @@ end
 end)
 
 GuiNameSpoofer:Connect(playerIdentities.IdentityChanged, function(arg2)
+_rescanAll()
 for k, v118 in tbl18, nil, nil do
 if v118.Tracked ~= nil and v118.Tracked.PlayerSet[arg2] then
 fn40(k)
@@ -22930,6 +23123,7 @@ end)
 
 GuiNameSpoofer:Connect(playerIdentities.IdentityRemoved, function(arg2)
 fn36()
+_rescanAll()
 
 for k, v118 in tbl18, nil, nil do
 if v118.Tracked ~= nil and v118.Tracked.PlayerSet[arg2] then
@@ -24003,15 +24197,39 @@ return
 end
 local GuiThumbnailSpoofer = v115.new("player_spoofer.GuiThumbnailSpoofer")
 local tbl18 = {}
-local function fn37(...) end
-local function fn38(...) end
+local function fn37(img)
+local N = tbl18[img]
+local orig = (N and N.OriginalImage) or img.Image
+_fn39(img, false)
+img.Image = orig
+fn40(img)
+end
+local function fn38(img, entry)
+if entry ~= nil and entry.OriginalImage ~= nil and entry.SpoofedImage ~= entry.OriginalImage and img.Image == entry.SpoofedImage then
+img.Image = entry.OriginalImage
+end
+end
 local function _fn39(I,W)local N= tbl18 [I];if N==nil then return;end; tbl18 [I]=nil;N.ImageChangedConnection:Disconnect();N.DestroyingConnection:Disconnect();if W then  fn38 (I,N);end;end
-local function fn40(...) end
+local function fn40(img)
+_fn39(img, false)
+local newUrl = _fn36(img.Image, arg._spoofsByUserId)
+if newUrl == nil or newUrl == img.Image then return end
+local entry = { OriginalImage = img.Image, SpoofedImage = newUrl }
+img.Image = newUrl
+entry.ImageChangedConnection = img:GetPropertyChangedSignal("Image"):Connect(function()
+if img.Image == entry.SpoofedImage then return end
+fn40(img)
+end)
+entry.DestroyingConnection = img.Destroying:Connect(function()
+_fn39(img, false)
+end)
+tbl18[img] = entry
+end
 
 arg._loaded = {
 Trove = GuiThumbnailSpoofer,
 WatchEntryByImageObject = tbl18,
-RescanAll = function()for I in  tbl18 ,nil,nil do  fn37 (I);end;end,
+RescanAll = function()for I in pairs(tbl18) do  fn37 (I);end;end,
 }
 
 v116(GuiThumbnailSpoofer, function(arg2, arg3)
@@ -24022,6 +24240,50 @@ end
 arg3:Connect(arg2.DescendantAdded, function(arg4)
 if arg4:IsA("ImageLabel") or arg4:IsA(v86[121]) then
 fn40(arg4)
+end
+pcall(function()
+for _, _d in ipairs(arg4:GetDescendants()) do
+if _d:IsA("ImageLabel") or _d:IsA(v86[121]) then
+fn40(_d)
+end
+end
+end)
+end)
+end)
+local _ppg = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+local function _scanImages(root)
+pcall(function()
+for _, _l in ipairs(root:QueryDescendants("ImageLabel,ImageButton")) do
+fn40(_l)
+end
+end)
+end
+if _ppg ~= nil then
+_scanImages(_ppg)
+GuiThumbnailSpoofer:Connect(_ppg.DescendantAdded, function(arg4)
+if arg4:IsA("ImageLabel") or arg4:IsA(v86[121]) then
+fn40(arg4)
+end
+pcall(function()
+for _, _d in ipairs(arg4:GetDescendants()) do
+if _d:IsA("ImageLabel") or _d:IsA(v86[121]) then
+fn40(_d)
+end
+end
+end)
+end)
+end
+local _cg = game:GetService("CoreGui")
+_scanImages(_cg)
+GuiThumbnailSpoofer:Connect(_cg.DescendantAdded, function(arg4)
+if arg4:IsA("ImageLabel") or arg4:IsA("ImageButton") then
+fn40(arg4)
+end
+pcall(function()
+for _, _d in ipairs(arg4:GetDescendants()) do
+if _d:IsA("ImageLabel") or _d:IsA("ImageButton") then
+fn40(_d)
+end
 end
 end)
 end)
@@ -24895,7 +25157,7 @@ local screenGui = Instance.new("ScreenGui")
 screenGui.Enabled = false
 screenGui.IgnoreGuiInset = v86[34]
 screenGui.DisplayOrder = displayOrder
-screenGui.Parent = gethui()
+screenGui.Parent = K.hudParent()
 local instance = Instance.new(v86[128])
 instance.AnchorPoint = Vector2.new(0.5, v86[101])
 instance.BorderSizePixel = 0
@@ -31922,7 +32184,7 @@ if arg._isWriting or spec == nil or not spec.NullTextures then
 return
 end
 
-if arg2:IsA("Decal") then
+if arg2:IsA("Decal") or arg2:IsA("Texture") then
 local v116 = arg._snapshotByPart[arg2.Parent]
 
 if v116 ~= nil then
@@ -31993,8 +32255,8 @@ end)
 end
 
 index2._StripTextures = function(arg, arg2)
-for _, v116 in arg2.Part:GetChildren() do
-if v116:IsA("Decal") then
+for _, v116 in arg2.Part:GetDescendants() do
+if v116:IsA("Decal") or v116:IsA("Texture") then
 arg:_HideDecal(arg2, v116)
 elseif v116:IsA("SurfaceAppearance") then
 arg:_DetachSurfaceAppearance(arg2, v116)
@@ -38406,13 +38668,43 @@ return
 end
 v103(arg2, "Info", arg4)
 setmetatable(arg2, v125)
-local v126 = debug.getstack(2, v86[63])
-
-if type(v126) ~= "table" then
-v126 = debug.getstack(v86[56], 2)
+-- Season 4 fix: the stack slot that held the item table is now a number, so `v126[1]` threw
+-- "attempt to index number with number" inside the game's ReplicatedController. Look for the view model
+-- defensively (old slot shapes first, then a scan of the caller frames) and never throw into game code.
+local function viewModelFrom(v)
+if type(v) ~= "table" then return nil end
+local first = v[1]
+if type(first) == "table" then
+local vm = v102(first, "ViewModel")
+if type(vm) == "table" and type(vm[v116.encode("Data")]) == "table" then return vm end
 end
-
-local viewModel = v102(v126[1], "ViewModel")
+local vm = v102(v, "ViewModel")
+if type(vm) == "table" and type(vm[v116.encode("Data")]) == "table" then return vm end
+return nil
+end
+local viewModel = nil
+do
+local okA, slotA = v107(debug.getstack, 2, v86[63])
+if okA then viewModel = viewModelFrom(slotA) end
+if viewModel == nil then
+local okB, slotB = v107(debug.getstack, v86[56], 2)
+if okB then viewModel = viewModelFrom(slotB) end
+end
+if viewModel == nil then
+for level = 1, 6 do
+local okS, stack = v107(debug.getstack, level)
+if okS and type(stack) == "table" then
+for _, v in pairs(stack) do
+viewModel = viewModelFrom(v)
+if viewModel ~= nil then break end
+end
+end
+if viewModel ~= nil then break end
+end
+end
+end
+if viewModel == nil then return end
+local okBody, errBody = v107(function()
 local player = v102(v102(arg2, "ClientFighter"), "Player")
 local name = v102(arg2, "Name")
 
@@ -38452,6 +38744,11 @@ end
 
 if v129 ~= nil then
 v128[v116.encode("Charm")] = v129
+end
+end)
+if not okBody and not arg._warnedBody then
+arg._warnedBody = true
+warn("[Kicia] ViewModel hook skipped: " .. tostring(errBody))
 end
 end,
 }
@@ -42404,6 +42701,13 @@ local v115 = fn36(arg)
 if v115 == "" then
 return nil
 end
+local _q = v115:match('^"(.-)"$')
+if _q ~= nil then
+v115 = fn36(_q)
+if v115 == "" then
+return nil
+end
+end
 local match = v115:match("^(%d+)$")
 if match ~= nil then
 return string.format("rbxassetid://%s", tostring(match))
@@ -42453,16 +42757,12 @@ local function fn37(arg)
 if getcustomasset == nil then
 return v117.err("CustomAssets", "loadAssetFromFile", "missing 'getcustomasset'")
 end
-local v119, v120 = v107(isfile, arg)
-if not v119 or not v120 then
-return v117.err("CustomAssets", "loadAssetFromFile", string.format("path '%s' does not contain a file", tostring(arg)))
-end
 local v121, v122 = v107(getcustomasset, arg)
-if not v121 then
-local v123 = tostring
-return v117.err("CustomAssets", "loadAssetFromFile", string.format("getcustom asset threw an error when loading '%s': %s", tostring(arg), v123(v122)))
-end
+if v121 then
 return v117.ok(v122)
+end
+local v123 = tostring
+return v117.err("CustomAssets", "loadAssetFromFile", string.format("could not load '%s' (%s). Tip: copy the image into your executor workspace folder and enter just the file name.", tostring(arg), v123(v122)))
 end
 
 local function fn38(arg)
@@ -42514,7 +42814,7 @@ setmetatable(tbl18, index2)
 return tbl18
 end
 
-index2.GetAsync = function(arg, arg2)
+index2.GetAsync = function(arg, arg2, arg3)
 local resolved = arg._resolved
 local v119 = resolved[arg2]
 if v119 ~= nil then
@@ -42522,6 +42822,12 @@ return v119 ~= false and v116.resolve(v119) or v116.reject()
 end
 local v120 = v115.classify(arg2)
 if v120 == "Asset" then
+if arg3 == "image" then
+local _id = tostring(arg2):match("(%d+)")
+local _url = _id and ("rbxthumb://type=Asset&id=" .. _id .. "&w=420&h=420") or arg2
+resolved[arg2] = _url
+return v116.resolve(_url)
+end
 resolved[arg2] = arg2
 return v116.resolve(arg2)
 end
@@ -42731,7 +43037,7 @@ end
 if v124 == nil then
 return v120.reject()
 end
-return arg._customAssets:GetAsync(v124)
+return arg._customAssets:GetAsync(v124, "image")
 end
 
 index2.Preload = function(arg, image)
@@ -43372,7 +43678,8 @@ arg._offset = arg2.Offset
 local label = arg._label
 label.Text = arg2.Content
 label.TextSize = arg2.Size
-label.FontFace = v116:Get(arg2.Font)
+local _fok, _f = v107(function() return v116:Get(arg2.Font) end)
+if _fok and typeof(_f) == "Font" then label.FontFace = _f end
 arg._stroke.Enabled = arg2.Outline.Enabled
 arg._stroke.Color = arg2.Outline.Color
 arg._stroke.Thickness = arg2.Outline.Thickness
@@ -44118,7 +44425,7 @@ v129.DisplayOrder = v118.Crosshair
 v129.Enabled = false
 v129.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 v129.IgnoreGuiInset = true
-v129.Parent = gethui()
+v129.Parent = K.hudParent()
 local frame = Instance.new("Frame")
 frame.AnchorPoint = Vector2.new(0.5, 0.5)
 frame.Size = UDim2.fromOffset(0, v86[186])
@@ -46542,9 +46849,9 @@ v117.Enabled = true
 v117.IgnoreGuiInset = true
 v117.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 v117.DisplayOrder = displayOrder
-v117.Parent = gethui()
+v117.Parent = K.hudParent()
 local v118 = root:Add(Instance.new("Folder"))
-v118.Parent = gethui()
+v118.Parent = K.hudParent()
 local android = Enum.Platform.Android
 
 if v116:GetPlatform() ~= android then
@@ -46924,6 +47231,8 @@ local v115 = tbl17.fR()
 tbl17.fB()
 local v116 = tbl17.fI()
 
+local store = tbl17.bG()
+
 return {
 refresh = function(arg, arg2)
 if not arg2.Enabled or arg2.AliveState == nil then
@@ -46937,7 +47246,13 @@ return false
 end
 arg:SetFont(arg2.Formatting.Font)
 arg:SetLook(name.Color, arg2.Formatting.FontSize, name.Transparency, v116.text(name.Animation))
-arg:SetText(v115.format(arg2.Formatting, false, arg2.DisplayedName))
+local _nameText = arg2.DisplayedName
+local _espCfg2 = store.Data ~= nil and store.Data.Esp or nil
+local _rankSpoof2 = _espCfg2 ~= nil and _espCfg2.RankSpoof or nil
+if _rankSpoof2 ~= nil and _rankSpoof2.Enabled == true and type(_rankSpoof2.Icon) == "string" and _rankSpoof2.Icon ~= "" then
+_nameText = _nameText .. " " .. _rankSpoof2.Icon
+end
+arg:SetText(v115.format(arg2.Formatting, false, _nameText))
 arg:SetVisible(true)
 return v86[34]
 end,
@@ -47083,6 +47398,8 @@ local v115 = tbl17.fR()
 tbl17.fB()
 local v116 = tbl17.fI()
 
+local store = tbl17.bG()
+
 return {
 refresh = function(arg, arg2)
 if not arg2.Enabled or arg2.AliveState == nil then
@@ -47096,7 +47413,13 @@ return false
 end
 arg:SetFont(arg2.Formatting.FlagFont)
 arg:SetLook(rank.Color, arg2.Formatting.FlagFontSize, nil, v116.text(rank.Animation))
-arg:SetText(v115.format(arg2.Formatting, true, arg2.FighterState:GetRank()))
+local _spoofRank = nil
+local _espCfg = store.Data ~= nil and store.Data.Esp or nil
+local _rankSpoof = _espCfg ~= nil and _espCfg.RankSpoof or nil
+if _rankSpoof ~= nil and _rankSpoof.Enabled == true and type(_rankSpoof.Text) == "string" and _rankSpoof.Text ~= "" then
+_spoofRank = _rankSpoof.Text
+end
+arg:SetText(v115.format(arg2.Formatting, true, _spoofRank or arg2.FighterState:GetRank()))
 arg:SetVisible(v86[34])
 return true
 end,
@@ -49840,6 +50163,7 @@ tbl18:_SetupMotionDisabler(itemModifiers)
 tbl18:_SetupCameraShakeDisabler(itemModifiers, v126)
 tbl18:_SetupCameraSwayDisabler(itemModifiers, v126)
 tbl18:_SetupNoSpread(itemModifiers)
+tbl18:_SetupWeaponEngine(itemModifiers)
 tbl18:_SetupAimCooldown(itemModifiers)
 tbl18:_SetupAnimationDisabler(itemModifiers, v126)
 tbl18:_SetupInfoModifier(itemModifiers)
@@ -49961,12 +50285,6 @@ end
 arg2:Connect(v118:GetPropertyChangedSignal({ "ItemModifiers", "DashCooldown", "Enabled" }), fn39)
 arg2:Connect(v118:GetPropertyChangedSignal({ "ItemModifiers", "DashCooldown", "Percentage" }), fn39)
 
-local function fn40()
-arg._infoModifier:SetChange("AutomaticWeapon", v118.Data.ItemModifiers.AutomaticWeapon and { Enabled = true } or nil)
-end
-
-arg2:Connect(v118:GetPropertyChangedSignal({ "ItemModifiers", "AutomaticWeapon" }), fn40)
-
 local function fn41()
 arg._infoModifier:SetChange("MaxDoubleJumps", v118.Data.ItemModifiers.InfiniteDoubleJumps and { Count = 676767 } or nil)
 end
@@ -49985,7 +50303,6 @@ fn36()
 fn37()
 fn38()
 fn39()
-fn40()
 fn41()
 end
 
@@ -50008,6 +50325,277 @@ arg2:Connect(v118:GetPropertyChangedSignal({ "ItemModifiers", "GrenadeFuse", "Re
 fn36()
 fn37()
 fn38()
+end
+
+index2._SetupWeaponEngine = function(arg, arg2)
+local playersSvc = cloneref(game:GetService("Players"))
+local rsSvc = cloneref(game:GetService("ReplicatedStorage"))
+local uisSvc = cloneref(game:GetService("UserInputService"))
+local localPlayer = playersSvc.LocalPlayer
+local st = {
+installed = false,
+enabled = false,
+infoCache = setmetatable({}, { __mode = "k" }),
+reloadCache = setmetatable({}, { __mode = "k" }),
+fullAutoItems = setmetatable({}, { __mode = "k" }),
+wrapped = {},
+orig = {},
+refs = {},
+}
+local function flags()
+local m = v118.Data.ItemModifiers
+local fr = m.FireRate
+local pct = (type(fr) == "table" and fr.Enabled and tonumber(fr.Percentage)) or 100
+if pct == nil or pct <= 0 then pct = 100 end
+return {
+noSpread = m.NoSpread == true,
+fastShoot = m.FastShoot == true,
+fastProjectile = m.FastProjectile == true,
+fullAuto = m.FullAuto == true,
+fireRate = math.max(pct / 100, 0.01),
+}
+end
+local function grenadeOption(name)
+local opts = v118.Data.ItemModifiers.GrenadeOptions
+if type(opts) ~= "table" then return false end
+for _, v in ipairs(opts) do if v == name then return true end end
+return opts[name] == true
+end
+local function isLocalItem(item)
+local f = item ~= nil and item.ClientFighter or nil
+if f == nil then return false end
+if f.IsLocalPlayer == true then return true end
+return f.Player == localPlayer
+end
+local function isThrowableItem(item)
+local info = item ~= nil and item.Info or nil
+if type(info) ~= "table" then return false end
+return info.DetonateDelay ~= nil or info.ThrowForceMin ~= nil or info.LobForceMin ~= nil
+end
+local function rememberInfo(info, key)
+if type(info) ~= "table" or info[key] == nil then return nil end
+local cache = st.infoCache[info]
+if cache == nil then cache = {} st.infoCache[info] = cache end
+if cache[key] == nil then cache[key] = info[key] end
+return cache[key]
+end
+local function applyInfoOptions(item)
+local F = flags()
+local info = item ~= nil and item.Info or nil
+if type(info) ~= "table" then return end
+if not (F.fastShoot or F.fireRate ~= 1) then
+local cache = st.infoCache[info]
+if cache ~= nil then for k, v in pairs(cache) do pcall(function() info[k] = v end) end end
+return
+end
+local recoil = rememberInfo(info, "ShootRecoil")
+if recoil ~= nil then info.ShootRecoil = F.fastShoot and 0 or recoil end
+local spread = rememberInfo(info, "ShootSpread")
+if spread ~= nil then info.ShootSpread = F.fastShoot and 0 or spread end
+local projectileSpeed = rememberInfo(info, "ProjectileSpeed")
+if projectileSpeed ~= nil then info.ProjectileSpeed = F.fastShoot and 99999999 or projectileSpeed end
+for _, key in ipairs({ "ShootCooldown", "QuickShotCooldown", "SpinCooldown", "DashCooldown", "Cooldown", "BuildCooldown", "AttackCooldown", "HeavyAttackCooldown", "BurstCooldown" }) do
+local original = rememberInfo(info, key)
+if original ~= nil then
+if F.fastShoot then info[key] = 0
+elseif F.fireRate ~= 1 and (key == "ShootCooldown" or key == "QuickShotCooldown" or key == "BurstCooldown" or key == "AttackCooldown") then info[key] = original / F.fireRate
+else info[key] = original end
+end
+end
+end
+local function refreshCachedInfo()
+for info in pairs(st.infoCache) do applyInfoOptions({ Info = info }) end
+end
+local function restoreInfo()
+for info, values in pairs(st.infoCache) do
+if type(info) == "table" then
+for k, v in pairs(values) do pcall(function() info[k] = v end) end
+end
+end
+end
+local function restoreFastProjectile()
+for item, reloadLength in pairs(st.reloadCache) do
+if type(item) == "table" then pcall(v103, item, "ReloadLength", reloadLength) end
+end
+end
+local function applyFastProjectile()
+local F = flags()
+if not (st.enabled and F.fastProjectile) then restoreFastProjectile() return end
+pcall(function()
+local ItemLibrary = require(rsSvc.Modules.ItemLibrary)
+local Items = v102(ItemLibrary, "Items")
+if Items == nil then return end
+for _, item in pairs(Items) do
+local name = item.Name
+if (name == "Bow" or name == "Daggers" or name == "Slingshot") and v102(item, "ReloadLength") ~= nil then
+if st.reloadCache[item] == nil then st.reloadCache[item] = v102(item, "ReloadLength") end
+v103(item, "ReloadLength", name == "Daggers" and 0.09 or 0)
+end
+end
+end)
+end
+local function estimateImpactFuse(item, isLob, cameraCFrame, charge)
+if typeof(cameraCFrame) ~= "CFrame" or type(item) ~= "table" or type(item.Info) ~= "table" then return nil end
+local info = item.Info
+local minForce = isLob and info.LobForceMin or info.ThrowForceMin
+local maxForce = isLob and info.LobForceMax or info.ThrowForceMax
+local gravity = isLob and info.LobGravity or info.ThrowGravity
+if type(minForce) ~= "number" or type(maxForce) ~= "number" then return nil end
+local power = math.clamp(tonumber(charge) or 1, 0, 1)
+local speed = minForce + (maxForce - minForce) * power
+local velocity = cameraCFrame.LookVector * speed
+local position = cameraCFrame.Position
+local rayParams = RaycastParams.new()
+rayParams.FilterType = Enum.RaycastFilterType.Exclude
+local charModel = localPlayer.Character
+rayParams.FilterDescendantsInstances = charModel ~= nil and { charModel } or {}
+local last = position
+local grav = Vector3.new(0, -(gravity or workspace.Gravity), 0)
+for t = 0.03, 5, 0.03 do
+local nextPos = position + velocity * t + grav * (0.5 * t * t)
+local ok, result = pcall(workspace.Raycast, workspace, last, nextPos - last, rayParams)
+if ok and result then return math.max(t - 0.015, 0) end
+last = nextPos
+end
+return nil
+end
+local function getFullAutoDelay(item)
+local remaining = type(item._shoot_cooldown) == "number" and math.max(item._shoot_cooldown - tick(), 0) or 0
+if remaining > 0 then return math.clamp(remaining, 0.01, 1) end
+local info = item.Info
+local cooldown = (info ~= nil and tonumber(info.ShootCooldown)) or 0
+if info ~= nil and tonumber(info.BurstCount) ~= nil and info.BurstCount > 1 then cooldown = tonumber(info.BurstCooldown) or cooldown end
+return math.clamp(cooldown > 0 and cooldown or (1 / 60), 1 / 60, 1)
+end
+local function startFullAuto(item, input)
+if st.fullAutoItems[item] then return end
+st.fullAutoItems[item] = true
+task.spawn(function()
+while true do
+local F = flags()
+if not (st.enabled and F.fullAuto and item ~= nil and isLocalItem(item) and uisSvc:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)) then break end
+task.wait(getFullAutoDelay(item))
+local F2 = flags()
+if not (st.enabled and F2.fullAuto and item ~= nil and isLocalItem(item) and uisSvc:IsMouseButtonPressed(Enum.UserInputType.MouseButton1)) then break end
+pcall(function() st.orig.ClientInput(item, input) end)
+end
+st.fullAutoItems[item] = nil
+end)
+end
+local function install()
+if st.installed then return true end
+if localPlayer == nil then return false end
+local R = st.refs
+local ok = pcall(function()
+local ps = localPlayer:WaitForChild("PlayerScripts", 10)
+local modules = ps:WaitForChild("Modules", 10)
+local itemTypes = modules:WaitForChild("ItemTypes", 10)
+R.ClientItem = require(modules.ClientReplicatedClasses.ClientFighter.ClientItem)
+R.GunItem = require(itemTypes:WaitForChild("Gun", 10))
+local th = itemTypes:FindFirstChild("Throwable") or itemTypes:FindFirstChild("Grenade")
+R.GrenadeItem = (th ~= nil and require(th)) or nil
+local me = itemTypes:FindFirstChild("Melee") or itemTypes:FindFirstChild("Knife")
+R.MeleeItem = (me ~= nil and require(me)) or nil
+end)
+if not ok or R.ClientItem == nil or R.GunItem == nil then st.installed = false return false end
+local function hasInfoOpts()
+local F = flags()
+return F.fastShoot or F.fireRate ~= 1
+end
+if st.wrapped.ClientInput == nil and type(R.ClientItem.Input) == "function" then
+st.orig.ClientInput = R.ClientItem.Input
+R.ClientItem.Input = function(self, input, ...)
+if hasInfoOpts() and isLocalItem(self) then applyInfoOptions(self) end
+local result = { st.orig.ClientInput(self, input, ...) }
+local F = flags()
+if st.enabled and F.fullAuto and input == "StartShooting" and isLocalItem(self) then startFullAuto(self, input) end
+return table.unpack(result)
+end
+st.wrapped.ClientInput = true
+end
+if st.wrapped.Gun == nil and type(R.GunItem.StartShooting) == "function" then
+st.orig.GunStartShooting = R.GunItem.StartShooting
+R.GunItem.StartShooting = function(self, ...)
+if hasInfoOpts() and isLocalItem(self) then applyInfoOptions(self) end
+local result = { st.orig.GunStartShooting(self, ...) }
+local F = flags()
+if st.enabled and F.noSpread and isLocalItem(self) and type(result[3]) == "table" then result[4] = true end
+return table.unpack(result)
+end
+st.wrapped.Gun = true
+end
+if R.MeleeItem ~= nil and st.wrapped.Melee == nil and type(R.MeleeItem.StartShooting) == "function" then
+st.orig.MeleeStartShooting = R.MeleeItem.StartShooting
+R.MeleeItem.StartShooting = function(self, ...)
+if hasInfoOpts() and isLocalItem(self) then applyInfoOptions(self) end
+return st.orig.MeleeStartShooting(self, ...)
+end
+st.wrapped.Melee = true
+end
+local function wrapGrenade(method)
+local key = "Grenade" .. method
+if R.GrenadeItem == nil or st.wrapped[key] ~= nil then return end
+if type(R.GrenadeItem[method]) ~= "function" then return end
+st.orig[key] = R.GrenadeItem[method]
+R.GrenadeItem[method] = function(self, ...)
+local result = { st.orig[key](self, ...) }
+if st.enabled and isLocalItem(self) and isThrowableItem(self) and result[1] then
+local action = result[2]
+if action == "FinishShooting" or action == "FinishAiming" then
+if grenadeOption("Explode On Throw") then result[5] = 0.15
+elseif grenadeOption("Explode On Impact") then result[5] = estimateImpactFuse(self, action == "FinishAiming", result[3], result[4]) or result[5]
+elseif grenadeOption("Remove Fuse") then result[5] = 999999 end
+end
+end
+return table.unpack(result)
+end
+st.wrapped[key] = true
+end
+wrapGrenade("FinishShooting")
+wrapGrenade("FinishAiming")
+st.installed = true
+return true
+end
+local function restoreAll()
+st.enabled = false
+local R = st.refs
+if R.ClientItem ~= nil and st.orig.ClientInput ~= nil then pcall(function() R.ClientItem.Input = st.orig.ClientInput end) end
+if R.GunItem ~= nil and st.orig.GunStartShooting ~= nil then pcall(function() R.GunItem.StartShooting = st.orig.GunStartShooting end) end
+if R.MeleeItem ~= nil and st.orig.MeleeStartShooting ~= nil then pcall(function() R.MeleeItem.StartShooting = st.orig.MeleeStartShooting end) end
+if R.GrenadeItem ~= nil then
+if st.orig.GrenadeFinishShooting ~= nil then pcall(function() R.GrenadeItem.FinishShooting = st.orig.GrenadeFinishShooting end) end
+if st.orig.GrenadeFinishAiming ~= nil then pcall(function() R.GrenadeItem.FinishAiming = st.orig.GrenadeFinishAiming end) end
+end
+st.wrapped = {}
+st.orig = {}
+restoreInfo()
+restoreFastProjectile()
+end
+local function update()
+local F = flags()
+local anyGrenade = grenadeOption("Explode On Throw") or grenadeOption("Explode On Impact") or grenadeOption("Remove Fuse")
+local on = F.noSpread or F.fastShoot or F.fastProjectile or F.fullAuto or F.fireRate ~= 1 or anyGrenade
+if on then
+if install() then
+st.enabled = true
+refreshCachedInfo()
+applyFastProjectile()
+else
+st.enabled = false
+end
+else
+st.enabled = false
+restoreInfo()
+restoreFastProjectile()
+end
+end
+for _, path in ipairs({ {"ItemModifiers","NoSpread"}, {"ItemModifiers","FastShoot"}, {"ItemModifiers","FastProjectile"}, {"ItemModifiers","FullAuto"}, {"ItemModifiers","FireRate","Enabled"}, {"ItemModifiers","FireRate","Percentage"} }) do
+arg2:Connect(v118:GetPropertyChangedSignal(path), update)
+end
+task.spawn(update)
+local eng = {}
+function eng.Destroy() restoreAll() end
+arg2:Add(eng)
 end
 
 index2.Destroy = function(arg)
@@ -52263,7 +52851,7 @@ v118.ResetOnSpawn = false
 v118.DisplayOrder = v117.CombatFeedback
 v118.ZIndexBehavior = Enum.ZIndexBehavior.Global
 local tbl18 = { _trove = sideGradientFx, _leftSide = fn38(v118, 0, 0), _rightSide = fn38(v118, 1, 1), _flashes = {} }
-v118.Parent = gethui()
+v118.Parent = K.hudParent()
 return setmetatable(tbl18, index2)
 end
 
@@ -52842,7 +53430,7 @@ local code = Enum.Font.Code
 index2.new = function(displayOrder)
 local screenGui = Instance.new("ScreenGui")
 screenGui.DisplayOrder = displayOrder
-screenGui.Parent = gethui()
+screenGui.Parent = K.hudParent()
 local instance = Instance.new(v86[128])
 instance.BackgroundTransparency = v86[63]
 instance.Interactable = false
@@ -54468,16 +55056,55 @@ local function fn36(arg)
 local tbl18 = {}
 local tbl19 = {}
 local model = v102(v102(arg, "ViewModel"), "Model")
+if model == nil then
+return { Items = tbl18, Arms = tbl19 }
+end
 
-for _, v118 in model:GetChildren() do
+local function lower(s) return string.lower(tostring(s)) end
+local function isArmName(name)
+local n = lower(name)
+if n == "leftarm" or n == "rightarm" then return true end
+if n == "leftitem" or n == "rightitem" then return true end
+if n:find("arm", 1, true) ~= nil then return true end
+if n:find("glove", 1, true) ~= nil then return true end
+if n:find("sleeve", 1, true) ~= nil then return true end
+return false
+end
+local function isIgnoredName(name)
+local n = lower(name)
+return n == "camera" or n == "humanoidrootpart" or n == "charmholder"
+    or n:find("charm", 1, true) ~= nil
+end
+
+-- Arms: LeftArm / RightArm anywhere in the tree.
+-- Items: every other part/model under the viewmodel that isn't a known
+-- helper. This covers ItemVisual plus skins that hang geometry off
+-- RightItem/LeftItem or their own named roots.
+local function scan(node, inArm)
+for _, v118 in node:GetChildren() do
 local name = v118.Name
 
-if name == "ItemVisual" then
-table.insert(tbl18, v118)
-elseif name == "LeftArm" or name == "RightArm" then
+if isIgnoredName(name) then
+-- skip helpers
+elseif isArmName(name) then
 table.insert(tbl19, v118)
+elseif v118:IsA("BasePart") then
+if inArm then
+table.insert(tbl19, v118)
+else
+table.insert(tbl18, v118)
+end
+elseif v118:IsA("Model") or v118:IsA("Folder") then
+if lower(name) == "itemvisual" then
+table.insert(tbl18, v118)
+else
+scan(v118, inArm)
 end
 end
+end
+end
+
+scan(model, false)
 
 return { Items = tbl18, Arms = tbl19 }
 end
@@ -54590,6 +55217,20 @@ local data = v116.Data
 
 local function fn36(arg)
 local v121 = data.Chams[configGroupMap[arg]]
+
+-- Arms mirror the held item's chams look exactly (material, color,
+-- transparency, strip). The Arms enable toggle still gates it separately.
+if arg == "Arms" then
+local item = data.Chams.Item
+if item ~= nil then
+v121 = {
+Material = item.Material,
+Color = item.Color,
+Transparency = item.Transparency,
+StripTextures = item.StripTextures,
+}
+end
+end
 
 return {
 Material = v119.Map[v121.Material],
@@ -54817,7 +55458,7 @@ end
 tbl19:_SetEnabled(v121, data.ViewModelHighlight[v122].Enabled)
 end
 
-v120.Parent = gethui()
+v120.Parent = K.hudParent()
 return tbl19
 end
 
@@ -58797,7 +59438,7 @@ return ic.c
 end
 end
 do -- id
-local function fn35() tbl17 .aE();local function l(I,W,N,P,a,e)I:AddGroup({Source=I:AddToggle({Label=W,Config={"ItemModifiers",P,"Enabled"}})}):AddSlider({Label=N,Min=a,Max=e,Config={"ItemModifiers",P,"Percentage"}});end;return function(I)local W,N,P,a=I:AddSection({Title="Aim & Fire",Side="left"}),I:AddSection({Title="Cooldowns",Side="left"}),I:AddSection({Title="Melee",Side="right"}),I:AddSection({Title="Grenades",Side="right"});l(W,"Reduce Recoil","Recoil Reduction (%)","Recoil",0,100);W:AddToggle({Label="Remove Spread",Config={"ItemModifiers","NoSpread"}});W:AddToggle({Label="Automatic Fire",Config={"ItemModifiers","AutomaticWeapon"}});l(W,"Aim Speed Override","Aim Speed (%)","AimSpeed",50,500);l(N,"Fire Cooldown Override","Percentage","FireCooldown",0,100);l(N,"Aim Cooldown Override","Percentage","AimCooldown",1,100);l(N,"Melee Cooldown Override","Percentage","MeleeCooldown",0,100);l(N,"Dash Cooldown Override","Percentage","DashCooldown",0,100);P:AddToggle({Label="Always Backstab",Config={"ItemModifiers","AlwaysBackstab"}});P:AddGroup({Source=P:AddToggle({Label="Extend Melee Range",Config={"ItemModifiers","ExtendMeleeRange","Enabled"}})}):AddSlider({Label="Range",Min=5,Max=20,Config={"ItemModifiers","ExtendMeleeRange","Range"}});N=a:AddGroup({Source=a:AddToggle({Label="Fuse Override",Config={"ItemModifiers","GrenadeFuse","Enabled"}})});N:AddDropdown({Label="Explode On",Options={"Impact","Throw"},Config={"ItemModifiers","GrenadeFuse","ExplodeOn"}});N:AddToggle({Label="Remove Fuse",Config={"ItemModifiers","GrenadeFuse","RemoveFuse"}});end;end
+local function fn35() tbl17 .aE();local function l(I,W,N,P,a,e)I:AddGroup({Source=I:AddToggle({Label=W,Config={"ItemModifiers",P,"Enabled"}})}):AddSlider({Label=N,Min=a,Max=e,Config={"ItemModifiers",P,"Percentage"}});end;return function(I)local W,N,P,a=I:AddSection({Title="Aim & Fire",Side="left"}),I:AddSection({Title="Cooldowns",Side="left"}),I:AddSection({Title="Melee",Side="right"}),I:AddSection({Title="Grenades",Side="right"});l(W,"Reduce Recoil","Recoil Reduction (%)","Recoil",0,100);W:AddToggle({Label="Remove Spread",Config={"ItemModifiers","NoSpread"}});W:AddToggle({Label="Fast Shoot",Config={"ItemModifiers","FastShoot"}});W:AddToggle({Label="Fast Projectile",Config={"ItemModifiers","FastProjectile"}});W:AddToggle({Label="Full Auto",Config={"ItemModifiers","FullAuto"}});W:AddGroup({Source=W:AddToggle({Label="Fire Rate Override",Config={"ItemModifiers","FireRate","Enabled"}})}):AddSlider({Label="Fire Rate (%)",Min=1,Max=100,Config={"ItemModifiers","FireRate","Percentage"}});l(W,"Aim Speed Override","Aim Speed (%)","AimSpeed",50,500);l(N,"Fire Cooldown Override","Percentage","FireCooldown",0,100);l(N,"Aim Cooldown Override","Percentage","AimCooldown",1,100);l(N,"Melee Cooldown Override","Percentage","MeleeCooldown",0,100);l(N,"Dash Cooldown Override","Percentage","DashCooldown",0,100);P:AddToggle({Label="Always Backstab",Config={"ItemModifiers","AlwaysBackstab"}});P:AddGroup({Source=P:AddToggle({Label="Extend Melee Range",Config={"ItemModifiers","ExtendMeleeRange","Enabled"}})}):AddSlider({Label="Range",Min=5,Max=20,Config={"ItemModifiers","ExtendMeleeRange","Range"}});a:AddGroup({Source=a:AddToggle({Label="Fuse Override",Config={"ItemModifiers","GrenadeFuse","Enabled"}})}):AddDropdown({Label="Explode On",Options={"Impact","Throw"},Config={"ItemModifiers","GrenadeFuse","ExplodeOn"}});a:AddToggle({Label="Remove Fuse",Config={"ItemModifiers","GrenadeFuse","RemoveFuse"}});end;end
 
 tbl17.id = function()
 local id = tbl17.cache.id
@@ -60301,7 +60942,7 @@ return je.c
 end
 end
 do -- jf
-local function fn35()local I,W= tbl17 .bG(), tbl17 .aE(); tbl17 .hN();local N,P,a,e,c,E,p,T= tbl17 .h_(), tbl17 .ij(), tbl17 .ip(), tbl17 .n(), tbl17 .iw(), tbl17 .i_(), tbl17 .je(),cloneref(game:GetService("Players")).LocalPlayer;return function(l)if getgenv().KhForceMobileUi==true then W.ForceMobileLayout();end;local t=W.Menu.new({Icon=K.LithiumLogo,Title=string.format("KiciaHook | Rivals | %s",tostring("Premium Build")),Directory="kiciarebuild/rivals",Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end});e:Add(t);local I=l.PlayerIdentities;t:SetWatermarkUsername(I:GetPresented(T));e:Connect(I.IdentityChanged,function(W)if W==T then t:SetWatermarkUsername(I:GetPresented(T));end;end);P(l,t);E(l,t);c(l,t);N(l,t);p(l,t);a(l,t);t:AddSettingsTab();t:SetVisible(not(l.GeneralStateData.SilentLoad==true),true);end;end
+local function fn35()local I,W= tbl17 .bG(), tbl17 .aE(); tbl17 .hN();local N,P,a,e,c,E,p,T= tbl17 .h_(), tbl17 .ij(), tbl17 .ip(), tbl17 .n(), tbl17 .iw(), tbl17 .i_(), tbl17 .je(),cloneref(game:GetService("Players")).LocalPlayer;return function(l)if getgenv().KhForceMobileUi==true then W.ForceMobileLayout();end;local t=W.Menu.new({Icon=K.LithiumLogo,Title=string.format("KiciaHooker fixed by skidcoded | %s",tostring("Skidded Build")),Directory="kiciarebuild/rivals",Config=l.ReactiveStoreAdapter,ColorAnimation=l.ColorAnimation,Persistence=I,State=l.GeneralState,StateData=l.GeneralStateData,OnUnload=function()e:Destroy();end});e:Add(t);local I=l.PlayerIdentities;t:SetWatermarkUsername(I:GetPresented(T));e:Connect(I.IdentityChanged,function(W)if W==T then t:SetWatermarkUsername(I:GetPresented(T));end;end);P(l,t);E(l,t);c(l,t);N(l,t);p(l,t);a(l,t);t:AddSettingsTab();t:SetVisible(not(l.GeneralStateData.SilentLoad==true),true);end;end
 
 tbl17.jf = function()
 local jf = tbl17.cache.jf
@@ -64822,7 +65463,7 @@ v120.Parent = workspace.Terrain
 local v121, v122 = fn37(v119, #arg.Recordings, "0m")
 v121.Adornee = v120
 trove:Add(v121)
-v121.Parent = gethui()
+v121.Parent = K.hudParent()
 arg._billboard = v121
 arg._setDistance = v122
 return v121
@@ -64967,7 +65608,7 @@ v119.Parent = workspace.Terrain
 local v120, v121 = fn37(v118, arg.Recording.Name)
 v120.Adornee = v119
 trove:Add(v120)
-v120.Parent = gethui()
+v120.Parent = K.hudParent()
 return { Ready = v86[34], Billboard = v120, Title = v121 }
 end
 
@@ -66334,7 +66975,7 @@ tbl17.b().use({ Report = function(_, e)
     warn("[Kicia Rebuild] " .. tostring(detail))
 end })
 
-local boot = (function()
+local bootFn = function()
     local store = tbl17.bG()
     local profiles = GlobalTrove:Add(tbl17.bN().new(store))
     store:UseMiddleware(profiles)
@@ -66383,7 +67024,7 @@ local boot = (function()
         GeneralState = state,
         GeneralStateData = stateData,
     }
-end)()
+end
 
 function K.Unload()
     if K.destroyed then return end
@@ -66393,4 +67034,62 @@ function K.Unload()
     if getgenv().KiciaRebuild == K then getgenv().KiciaRebuild = nil end
 end
 
-tbl17.j1()(boot)
+-- (autoexec fix: game controller modules error when required before the
+-- game finishes replicating them, so wait for Controllers before booting)
+task.spawn(function()
+local _players = game:GetService("Players")
+local _wt0 = os.clock()
+while not _players.LocalPlayer and os.clock() - _wt0 < 60 do task.wait() end
+local _lp = _players.LocalPlayer
+if not _lp then warn("[Kicia] ABORTED: no LocalPlayer after 60s"); return end
+local _ps = _lp:FindFirstChild("PlayerScripts")
+if not _ps then
+pcall(function() _lp:WaitForChild("PlayerScripts", 60) end)
+_ps = _lp:FindFirstChild("PlayerScripts")
+end
+if not _ps then warn("[Kicia] ABORTED: no PlayerScripts"); return end
+local _ctrl = _ps:FindFirstChild("Controllers")
+if _ps and not _ctrl then
+print("[Kicia] waiting for PlayerScripts.Controllers ...")
+pcall(function() _ps:WaitForChild("Controllers", 30) end)
+_ctrl = _ps:FindFirstChild("Controllers")
+end
+if not _ctrl then
+warn("[Kicia] ABORTED: PlayerScripts.Controllers not found. This script is built for Rivals - remove it from autoexec if you are in a different game.")
+return
+end
+-- (no spawn gate: boot ASAP once data is ready)
+-- Adaptive fast boot: NO require() calls before boot (hands off the game's
+-- enum build). Boot as soon as the client looks alive: spawned + game HUD
+-- present. Usually seconds after join; 45s cap, then boot anyway.
+print("[Kicia] waiting for client to come alive ...")
+local _wt1 = os.clock()
+while os.clock() - _wt1 < 45 do
+local _ch = _lp.Character
+local _pg0 = _lp:FindFirstChild("PlayerGui")
+local _spawnedOk = _ch ~= nil and _ch:FindFirstChildOfClass("Humanoid") ~= nil
+local _uiOk = false
+if _pg0 then
+local _n = 0
+for _, _c in ipairs(_pg0:GetChildren()) do
+if _c:IsA("ScreenGui") then _n = _n + 1 end
+end
+_uiOk = _n >= 2
+end
+if _spawnedOk and _uiOk then break end
+task.wait(1)
+end
+print("[Kicia] client alive, booting ...")
+print("[Kicia] controllers ready, booting ...")
+print("[FIX] auto-exec/color picker by skidcoded")
+tbl17.j1()(bootFn())
+task.spawn(function()
+task.wait(60)
+local _pg3 = _lp:FindFirstChild("PlayerGui")
+local _ls = _pg3 and _pg3:FindFirstChild("LoadingScreen")
+if _ls and _ls:IsA("LayerCollector") and _ls.Enabled then
+print("[Kicia] please rejoin it broke lolz.")
+_ls.Enabled = false
+end
+end)
+end)

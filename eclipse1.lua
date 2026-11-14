@@ -1,5 +1,5 @@
 -- =====================================================================
--- ECLIPSE / KICIA HYBRID UI & AIMBOT
+-- ECLIPSE (AIMBOT, SILENT AIM, RAGEBOT, ESP)
 -- =====================================================================
 local repo = 'https://raw.githubusercontent.com/mstudio45/LinoriaLib/main/'
 local Library = loadstring(game:HttpGet(repo .. 'Library.lua'))()
@@ -31,10 +31,10 @@ local Window = Library:CreateWindow({
 })
 
 local Tabs = {
-    Combat = Window:AddTab('Combat'),
+    Aimbot = Window:AddTab('Aimbot'),
+    SilentAim = Window:AddTab('Silent Aim'),
+    Ragebot = Window:AddTab('Ragebot'),
     Visuals = Window:AddTab('Visuals'),
-    Movement = Window:AddTab('Movement'),
-    Automation = Window:AddTab('Automation'),
     Settings = Window:AddTab('Settings'),
 }
 
@@ -43,8 +43,6 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
-local Lighting = game:GetService("Lighting")
-local CollectionService = game:GetService("CollectionService")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
@@ -56,294 +54,167 @@ local function T(n) local t = Toggles[n]; return t and t.Value or false end
 local function O(n) local o = Options[n]; return o and o.Value end
 
 -- ==========================================
--- COMBAT TAB
+-- 1. AIMBOT TAB
 -- ==========================================
-local AimAssist = Tabs.Combat:AddLeftGroupbox('Aim Assist')
-AimAssist:AddToggle('Aimbot', { Text = 'Aimbot', Default = false })
+local AimGroup = Tabs.Aimbot:AddLeftGroupbox('Aimbot')
+AimGroup:AddToggle('Aimbot', { Text = 'Enable Aimbot', Default = false })
     :AddKeyPicker('AimbotKey', { Default = 'None', Mode = 'Toggle', SyncToggleState = true, Text = 'Aimbot' })
-AimAssist:AddToggle('SilentAim', { Text = 'Silent Aim', Default = false })
+AimGroup:AddDropdown('HitPart', { Values = {'Random', 'Head', 'Torso'}, Default = 'Random', Text = 'Hit Part' })
+AimGroup:AddSlider('AimbotFOV', { Text = 'FOV Size', Default = 500, Min = 20, Max = 2000, Rounding = 0 })
+AimGroup:AddSlider('Smoothness', { Text = 'Smoothness', Default = 35, Min = 0, Max = 100, Rounding = 0 })
+AimGroup:AddDropdown('AimbotMode', { Values = {'Lock', 'Linear', 'Spring'}, Default = 'Lock', Text = 'Aim Mode' })
+AimGroup:AddToggle('ShowFOVCircle', { Text = 'Show FOV Circle', Default = false })
+AimGroup:AddToggle('TeamCheck', { Text = 'Team Check', Default = true })
+AimGroup:AddToggle('WallCheck', { Text = 'Wall Check', Default = true })
+AimGroup:AddToggle('MovementDetector', { Text = 'Movement Detector', Default = true })
+AimGroup:AddSlider('MaxDistance', { Text = 'Max Distance', Default = 1200, Min = 100, Max = 3000, Rounding = 0 })
+
+-- ==========================================
+-- 2. SILENT AIM TAB
+-- ==========================================
+local SilentGroup = Tabs.SilentAim:AddLeftGroupbox('Silent Aim')
+SilentGroup:AddToggle('SilentAim', { Text = 'Enable Silent Aim', Default = false })
     :AddKeyPicker('SilentAimKey', { Default = 'None', Mode = 'Toggle', SyncToggleState = true, Text = 'Silent Aim' })
-AimAssist:AddSlider('Smoothness', { Text = 'Smoothness', Default = 35, Min = 0, Max = 100, Rounding = 0 })
-AimAssist:AddSlider('SilentAimHitChance', { Text = 'Silent Aim Hit Chance', Default = 100, Min = 0, Max = 100, Rounding = 0 })
-AimAssist:AddSlider('FOVSize', { Text = 'FOV Size', Default = 500, Min = 20, Max = 2000, Rounding = 0 })
-AimAssist:AddDropdown('HitPart', { Values = {'Random', 'Head', 'Torso'}, Default = 'Random', Text = 'Hit Part' })
-AimAssist:AddToggle('ShowFOVCircle', { Text = 'Show FOV Circle', Default = false })
-AimAssist:AddToggle('OnlyWhileScoped', { Text = 'Only while Scoped', Default = false })
-AimAssist:AddToggle('TeamCheck', { Text = 'Team Check', Default = true })
-AimAssist:AddToggle('WallCheck', { Text = 'Wall Check', Default = true })
-AimAssist:AddToggle('MovementDetector', { Text = 'Movement Detector', Default = true })
-AimAssist:AddDropdown('AimbotMode', { Values = {'Lock', 'Linear', 'Spring', 'AI', 'SigmaMouse'}, Default = 'Lock', Text = 'Aim Mode' })
-AimAssist:AddToggle('AimbotShowFOV', { Text = 'Show Aimbot FOV', Default = false })
-AimAssist:AddSlider('SilentAimJitterDeg', { Text = 'Silent Aim Jitter (deg)', Default = 1.5, Min = 0, Max = 10, Rounding = 1 })
-AimAssist:AddSlider('SilentAimBodyMix', { Text = 'Body Mix %', Default = 25, Min = 0, Max = 100, Rounding = 0 })
-AimAssist:AddSlider('SilentAimStickiness', { Text = 'Stickiness', Default = 0.05, Min = 0, Max = 1, Rounding = 2 })
-AimAssist:AddSlider('MaxDistance', { Text = 'Max Distance', Default = 1200, Min = 100, Max = 3000, Rounding = 0 })
-AimAssist:AddToggle('PredictiveLead', { Text = 'Predictive Lead', Default = true })
-AimAssist:AddSlider('LeadCap', { Text = 'Lead Cap', Default = 15, Min = 0, Max = 50, Rounding = 0 })
-AimAssist:AddToggle('SilentAimMultipoint', { Text = 'Multipoint', Default = false })
-AimAssist:AddSlider('SilentAimMultipointCount', { Text = 'Multipoint Count', Default = 5, Min = 1, Max = 12, Rounding = 0 })
-AimAssist:AddToggle('SilentAimTorsoFallback', { Text = 'Torso Fallback', Default = false })
+SilentGroup:AddDropdown('SilentHitPart', { Values = {'Head', 'Torso', 'Random'}, Default = 'Head', Text = 'Hit Part' })
+SilentGroup:AddSlider('SilentAimFOV', { Text = 'FOV Size', Default = 500, Min = 20, Max = 2000, Rounding = 0 })
+SilentGroup:AddSlider('SilentAimHitChance', { Text = 'Hit Chance %', Default = 100, Min = 1, Max = 100, Rounding = 0 })
+SilentGroup:AddToggle('SilentTeamCheck', { Text = 'Team Check', Default = true })
+SilentGroup:AddToggle('SilentWallCheck', { Text = 'Wall Check', Default = true })
 
-local Ragebot = Tabs.Combat:AddRightGroupbox('Ragebot')
-Ragebot:AddToggle('RagebotEnabled', { Text = 'Enabled', Default = false })
+-- ==========================================
+-- 3. RAGEBOT TAB
+-- ==========================================
+local RageGroup = Tabs.Ragebot:AddLeftGroupbox('Ragebot')
+RageGroup:AddToggle('RagebotEnabled', { Text = 'Enable Ragebot', Default = false })
     :AddKeyPicker('RagebotKey', { Default = 'None', Mode = 'Toggle', SyncToggleState = true, Text = 'Ragebot' })
-Ragebot:AddDropdown('RagebotWeapon', { Values = {'Auto', 'Primary', 'Secondary', 'Melee'}, Default = 'Auto', Text = 'Weapon' })
-Ragebot:AddSlider('RageFireRate', { Text = 'Fire Rate', Default = 0.05, Min = 0.01, Max = 0.3, Rounding = 2 })
-Ragebot:AddToggle('RageTeleportMode', { Text = 'Teleport Mode', Default = false })
-Ragebot:AddSlider('RageOrbitRadius', { Text = 'Orbit Distance', Default = 5, Min = 2, Max = 25, Rounding = 0 })
-Ragebot:AddSlider('RageOrbitSpeed', { Text = 'Orbit Speed', Default = 15, Min = 5, Max = 50, Rounding = 0 })
-Ragebot:AddToggle('RageAutoFire', { Text = 'Auto Fire', Default = true })
-Ragebot:AddToggle('RageAntiHit', { Text = 'Anti-Hit', Default = true })
-Ragebot:AddToggle('RageClampY', { Text = 'Clamp to Floor', Default = true })
-Ragebot:AddToggle('RageRoundCheck', { Text = 'Round State Check', Default = true })
-Ragebot:AddToggle('RageWallbang', { Text = 'Wallbang', Default = true })
+RageGroup:AddDropdown('RagebotWeapon', { Values = {'Auto', 'Primary', 'Secondary', 'Melee'}, Default = 'Auto', Text = 'Weapon' })
+RageGroup:AddSlider('RageFireRate', { Text = 'Fire Rate', Default = 0.05, Min = 0.01, Max = 0.3, Rounding = 2 })
+RageGroup:AddToggle('RageTeleportMode', { Text = 'Teleport Mode', Default = false })
+RageGroup:AddSlider('RageOrbitRadius', { Text = 'Orbit Distance', Default = 5, Min = 2, Max = 25, Rounding = 0 })
+RageGroup:AddSlider('RageOrbitSpeed', { Text = 'Orbit Speed', Default = 15, Min = 5, Max = 50, Rounding = 0 })
+RageGroup:AddToggle('RageAutoFire', { Text = 'Auto Fire', Default = true })
+RageGroup:AddToggle('RageAntiHit', { Text = 'Anti-Hit', Default = true })
 
-local Triggerbot = Tabs.Combat:AddRightGroupbox('Triggerbot')
-Triggerbot:AddToggle('TriggerbotEnabled', { Text = 'Enabled', Default = false })
-    :AddKeyPicker('TriggerbotKey', { Default = 'None', Mode = 'Toggle', SyncToggleState = true, Text = 'Triggerbot' })
-Triggerbot:AddSlider('TriggerReaction', { Text = 'Reaction Delay (s)', Default = 0, Min = 0, Max = 1, Rounding = 2 })
-Triggerbot:AddSlider('TriggerRelease', { Text = 'Release Delay (s)', Default = 0, Min = 0, Max = 1, Rounding = 2 })
-Triggerbot:AddDropdown('TriggerTarget', { Values = {'Any', 'Head', 'Torso'}, Default = 'Any', Text = 'Target' })
-Triggerbot:AddToggle('TriggerScoped', { Text = 'Only When Scoped', Default = false })
-
-local WeaponMods = Tabs.Combat:AddRightGroupbox('Weapon Mods')
-WeaponMods:AddToggle('NoBulletSpread', { Text = 'No Bullet Spread', Default = false })
-WeaponMods:AddToggle('RapidFire', { Text = 'Rapid Fire', Default = false })
-WeaponMods:AddToggle('NoScytheCooldown', { Text = 'No Scythe Cooldown', Default = false })
-
--- Aim Assist Variables
+-- Core Variables
 local SpringState = { pos = Vector3.zero, vel = Vector3.zero, initialized = false }
-local AIState = { lastTarget = Vector3.zero, lead = Vector3.zero, acquireAt = 0 }
 local lastFrameTime = tick()
-local switchState = { lastTarget = nil, switchAt = 0 }
-
--- FOV Circle
 local FOVCircle = Drawing.new("Circle")
 FOVCircle.Thickness = 1.5; FOVCircle.Color = Color3.fromRGB(255, 255, 255); FOVCircle.Filled = false; FOVCircle.Visible = false
--- =====================================================================
--- VISUALS & ESP
--- =====================================================================
+-- ==========================================
+-- 4. VISUALS TAB (Optimized ESP)
+-- ==========================================
 local ESPGroup = Tabs.Visuals:AddLeftGroupbox('ESP')
 ESPGroup:AddToggle('EnableESP', { Text = 'Enable ESP', Default = false })
     :AddKeyPicker('ESPKey', { Default = 'None', Mode = 'Toggle', SyncToggleState = true, Text = 'ESP' })
 ESPGroup:AddToggle('ESPBox', { Text = 'Box', Default = true })
 ESPGroup:AddToggle('ESPNames', { Text = 'Names', Default = true })
 ESPGroup:AddToggle('ESPHealth', { Text = 'Health Bar', Default = true })
-ESPGroup:AddToggle('ESPHealthText', { Text = 'Health Text', Default = false })
-ESPGroup:AddToggle('ESPDistance', { Text = 'Distance', Default = false })
-ESPGroup:AddToggle('ESPTeam', { Text = 'Show Teammates', Default = false })
 ESPGroup:AddSlider('ESPMaxDist', { Text = 'Max Distance', Default = 500, Min = 50, Max = 2000, Rounding = 0 })
 ESPGroup:AddToggle('ESPHighlight', { Text = 'Highlight', Default = false })
-ESPGroup:AddDropdown('ESPHighlightMethod', { Values = {'Highlight', 'Chams'}, Default = 'Highlight', Text = 'Highlight Method' })
-ESPGroup:AddToggle('ESPSkeleton', { Text = 'Skeleton', Default = false })
-ESPGroup:AddToggle('ESPLookDir', { Text = 'Look Direction', Default = false })
 ESPGroup:AddSlider('ESPTextSize', { Text = 'Text Size', Default = 13, Min = 10, Max = 24, Rounding = 0 })
 
 local ESPColors = Tabs.Visuals:AddLeftGroupbox('ESP Colors')
 ESPColors:AddLabel('Visible Color'):AddColorPicker('ColorVisible', { Default = Color3.fromRGB(0, 255, 0) })
 ESPColors:AddLabel('Hidden Color'):AddColorPicker('ColorHidden', { Default = Color3.fromRGB(255, 0, 0) })
-ESPColors:AddLabel('Teammate Color'):AddColorPicker('ColorTeam', { Default = Color3.fromRGB(0, 150, 255) })
 
-local Throwables = Tabs.Visuals:AddLeftGroupbox('Throwables ESP')
-Throwables:AddToggle('ThrowableESP', { Text = 'Enable Throwables ESP', Default = false })
-Throwables:AddSlider('ThrowableMaxDist', { Text = 'Max Distance', Default = 500, Min = 50, Max = 2000, Rounding = 0 })
-
-local Removals = Tabs.Visuals:AddRightGroupbox('Effect Removals')
-Removals:AddToggle('NoFlashbang', { Text = 'No Flashbang Effect', Default = false })
-Removals:AddToggle('NoBurn', { Text = 'No Burn Effect', Default = false })
-Removals:AddToggle('NoScopeOverlay', { Text = 'No Scope Overlay', Default = false })
-Removals:AddToggle('NoScopeReticle', { Text = 'No Scope Reticle', Default = false })
-Removals:AddToggle('NoADS', { Text = 'No ADS Vignette', Default = false })
-Removals:AddToggle('NoMuzzle', { Text = 'No Muzzle Flash', Default = false })
-Removals:AddToggle('NoTracers', { Text = 'No Gun Tracers', Default = false })
-Removals:AddToggle('NoHitmarker', { Text = 'No Hitmarker', Default = false })
-
-local CameraFx = Tabs.Visuals:AddRightGroupbox('Camera Effects')
-CameraFx:AddToggle('NoCameraShake', { Text = 'No Camera Shake', Default = true })
-CameraFx:AddToggle('CustomFOV', { Text = 'Custom Camera FOV', Default = false })
-CameraFx:AddSlider('FOVValue', { Text = 'FOV Value', Default = 130, Min = 50, Max = 130, Rounding = 0 })
-CameraFx:AddToggle('ThirdPerson', { Text = 'Third Person', Default = false })
-
-local Viewmodel = Tabs.Visuals:AddRightGroupbox('Viewmodel Effects')
-Viewmodel:AddToggle('NoViewModelMotion', { Text = 'No Viewmodel Motion', Default = false })
-Viewmodel:AddToggle('NoShootAnim', { Text = 'No Shoot Animation', Default = false })
-Viewmodel:AddToggle('NoSprintAnim', { Text = 'No Sprint Animation', Default = false })
-Viewmodel:AddToggle('NoReloadAnim', { Text = 'No Reload Animation', Default = false })
-Viewmodel:AddToggle('NoEquipAnim', { Text = 'No Equip Animation', Default = false })
-
-local Stretched = Tabs.Visuals:AddRightGroupbox('Stretched Resolution')
-Stretched:AddToggle('StretchedEnabled', { Text = 'Stretched Resolution', Default = false })
-Stretched:AddSlider('StretchedX', { Text = 'X Ratio', Default = 100, Min = 10, Max = 100, Rounding = 0 })
-Stretched:AddSlider('StretchedY', { Text = 'Y Ratio', Default = 83, Min = 10, Max = 100, Rounding = 0 })
-
--- ESP Logic
 local CoreGui = game:GetService("CoreGui")
-local ESP = { Enabled = true, TeamCheck = true, MaxDistance = 200, FontSize = 11 }
-local Functions = {
-    Create = function(Class, Properties)
-        local _Instance = typeof(Class) == 'string' and Instance.new(Class) or Class
-        for Property, Value in pairs(Properties) do _Instance[Property] = Value end
-        return _Instance
-    end
-}
+local ESP_Cache = {}
 
-task.spawn(function()
-    local ScreenGui = Functions.Create("ScreenGui", { Parent = CoreGui, Name = "EclipseESPHolder" })
+local function CreateESP(plr)
+    if plr == LocalPlayer then return end
+    local Folder = Instance.new("Folder")
+    Folder.Name = plr.Name
+    Folder.Parent = CoreGui:FindFirstChild("EclipseESPHolder") or Instance.new("ScreenGui", CoreGui)
     
-    local function FadeOut(element, distance)
-        local transparency = math.max(0.1, 1 - (distance / Options.ESPMaxDist.Value))
-        if element:IsA("TextLabel") then element.TextTransparency = 1 - transparency
-        elseif element:IsA("Frame") then element.BackgroundTransparency = 1 - transparency
-        elseif element:IsA("UIStroke") then element.Transparency = 1 - transparency
-        elseif element:IsA("Highlight") then element.FillTransparency = 1 - transparency; element.OutlineTransparency = 1 - transparency end
-    end
+    local Name = Instance.new("TextLabel", Folder)
+    Name.BackgroundTransparency = 1; Name.TextColor3 = Color3.new(1,1,1); Name.Font = Enum.Font.Code; Name.TextStrokeTransparency = 0; Name.RichText = true
+    
+    local Box = Instance.new("Frame", Folder)
+    Box.BackgroundColor3 = Color3.new(0,0,0); Box.BackgroundTransparency = 0.75; Box.BorderSizePixel = 0
+    
+    local Outline = Instance.new("UIStroke", Box)
+    Outline.Color = Color3.new(1,1,1)
+    
+    local HealthBar = Instance.new("Frame", Folder)
+    HealthBar.BackgroundColor3 = Color3.new(0,255,0); HealthBar.BorderSizePixel = 0
+    
+    local Chams = Instance.new("Highlight", Folder)
+    Chams.FillTransparency = 0.5; Chams.OutlineTransparency = 0
+    
+    ESP_Cache[plr] = { Folder = Folder, Name = Name, Box = Box, Outline = Outline, HealthBar = HealthBar, Chams = Chams }
+end
 
-    local function CreateESP(plr)
-        if plr == LocalPlayer then return end
-        if ScreenGui:FindFirstChild(plr.Name) then ScreenGui[plr.Name]:Destroy() end
-        
-        local Folder = Functions.Create("Folder", { Parent = ScreenGui, Name = plr.Name })
-        local Name = Functions.Create("TextLabel", {Parent = Folder, BackgroundTransparency = 1, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.Code, TextSize = Options.ESPTextSize.Value, TextStrokeTransparency = 0, RichText = true})
-        local Box = Functions.Create("Frame", {Parent = Folder, BackgroundColor3 = Color3.new(0,0,0), BackgroundTransparency = 0.75, BorderSizePixel = 0})
-        local Outline = Functions.Create("UIStroke", {Parent = Box, Color = Color3.new(1,1,1)})
-        local HealthBar = Functions.Create("Frame", {Parent = Folder, BackgroundColor3 = Color3.new(0,255,0), BorderSizePixel = 0})
-        local Chams = Functions.Create("Highlight", {Parent = Folder, FillTransparency = 0.5, OutlineTransparency = 0})
-        local Distance = Functions.Create("TextLabel", {Parent = Folder, BackgroundTransparency = 1, TextColor3 = Color3.new(1,1,1), Font = Enum.Font.Code, TextSize = Options.ESPTextSize.Value, TextStrokeTransparency = 0})
+for _, p in pairs(Players:GetPlayers()) do CreateESP(p) end
+Players.PlayerAdded:Connect(CreateESP)
 
-        RunService.RenderStepped:Connect(function()
-            if not T('EnableESP') or not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then
-                Folder.Enabled = false
-                return
-            end
-            
-            local HRP = plr.Character.HumanoidRootPart
-            local Humanoid = plr.Character:FindFirstChild("Humanoid")
-            if not Humanoid or Humanoid.Health <= 0 then Folder.Enabled = false return end
-            
-            local Pos, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
-            local Dist = (Camera.CFrame.Position - HRP.Position).Magnitude / 3.57
-            
-            if OnScreen and Dist <= Options.ESPMaxDist.Value then
-                Folder.Enabled = true
-                local Size = HRP.Size.Y
-                local scaleFactor = (Size * Camera.ViewportSize.Y) / (Pos.Z * 2)
-                local w, h = 3 * scaleFactor, 4.5 * scaleFactor
-                
-                -- Box
-                Box.Visible = T('ESPBox')
-                Box.Position = UDim2.new(0, Pos.X - w / 2, 0, Pos.Y - h / 2)
-                Box.Size = UDim2.new(0, w, 0, h)
-                FadeOut(Box, Dist); FadeOut(Outline, Dist)
-                
-                -- Name
-                Name.Visible = T('ESPNames')
-                Name.Text = plr.Name .. " [" .. math.floor(Dist) .. "]"
-                Name.Position = UDim2.new(0, Pos.X, 0, Pos.Y - h / 2 - 15)
-                FadeOut(Name, Dist)
-                
-                -- Health
-                HealthBar.Visible = T('ESPHealth')
-                local health = Humanoid.Health / Humanoid.MaxHealth
-                HealthBar.Position = UDim2.new(0, Pos.X - w / 2 - 5, 0, Pos.Y - h / 2 + h * (1 - health))
-                HealthBar.Size = UDim2.new(0, 2, 0, h * health)
-                FadeOut(HealthBar, Dist)
-                
-                -- Chams
-                Chams.Enabled = T('ESPHighlight')
-                Chams.Adornee = plr.Character
-                FadeOut(Chams, Dist)
-            else
-                Folder.Enabled = false
-            end
-        end)
-    end
-
-    for _, plr in pairs(Players:GetPlayers()) do CreateESP(plr) end
-    Players.PlayerAdded:Connect(CreateESP)
-end)
-
--- Camera & FOV
 RunService.RenderStepped:Connect(function()
-    if T('CustomFOV') then
-        Camera.FieldOfView = O('FOVValue')
+    if not T('EnableESP') then
+        for _, v in pairs(ESP_Cache) do v.Folder.Enabled = false end
+        return
+    end
+    
+    for plr, ui in pairs(ESP_Cache) do
+        if not plr.Character or not plr.Character:FindFirstChild("HumanoidRootPart") then
+            ui.Folder.Enabled = false
+            continue
+        end
+        
+        local HRP = plr.Character.HumanoidRootPart
+        local Humanoid = plr.Character:FindFirstChild("Humanoid")
+        if not Humanoid or Humanoid.Health <= 0 then ui.Folder.Enabled = false continue end
+        
+        local Pos, OnScreen = Camera:WorldToViewportPoint(HRP.Position)
+        local Dist = (Camera.CFrame.Position - HRP.Position).Magnitude / 3.57
+        
+        if OnScreen and Dist <= O('ESPMaxDist') then
+            ui.Folder.Enabled = true
+            local Size = HRP.Size.Y
+            local scaleFactor = (Size * Camera.ViewportSize.Y) / (Pos.Z * 2)
+            local w, h = 3 * scaleFactor, 4.5 * scaleFactor
+            
+            ui.Box.Visible = T('ESPBox')
+            ui.Box.Position = UDim2.new(0, Pos.X - w / 2, 0, Pos.Y - h / 2)
+            ui.Box.Size = UDim2.new(0, w, 0, h)
+            
+            ui.Name.Visible = T('ESPNames')
+            ui.Name.Text = plr.Name
+            ui.Name.TextSize = O('ESPTextSize')
+            ui.Name.Position = UDim2.new(0, Pos.X, 0, Pos.Y - h / 2 - 15)
+            
+            ui.HealthBar.Visible = T('ESPHealth')
+            local health = Humanoid.Health / Humanoid.MaxHealth
+            ui.HealthBar.Position = UDim2.new(0, Pos.X - w / 2 - 5, 0, Pos.Y - h / 2 + h * (1 - health))
+            ui.HealthBar.Size = UDim2.new(0, 2, 0, h * health)
+            
+            ui.Chams.Enabled = T('ESPHighlight')
+            ui.Chams.Adornee = plr.Character
+        else
+            ui.Folder.Enabled = false
+        end
     end
 end)
--- =====================================================================
--- MOVEMENT & AUTOMATION
--- =====================================================================
-local MoveGroup = Tabs.Movement:AddLeftGroupbox('Movement')
-MoveGroup:AddToggle('WalkSpeed', { Text = 'WalkSpeed', Default = false })
-MoveGroup:AddSlider('WalkSpeedMulti', { Text = 'Walk Speed Multiplier', Default = 2.00, Min = 1, Max = 10, Rounding = 2 })
-MoveGroup:AddToggle('SlidingSpeed', { Text = 'Sliding Speed', Default = false })
-MoveGroup:AddSlider('SlidingMulti', { Text = 'Sliding Multiplier', Default = 10.00, Min = 1, Max = 20, Rounding = 2 })
-MoveGroup:AddToggle('JumpPower', { Text = 'Jump Power', Default = false })
-MoveGroup:AddSlider('JumpPowerMulti', { Text = 'Jump Power Multiplier', Default = 2.00, Min = 1, Max = 10, Rounding = 2 })
-MoveGroup:AddToggle('Noclip', { Text = 'Noclip', Default = false })
+-- ==========================================
+-- 5. SETTINGS TAB
+-- ==========================================
+local Settings = Tabs.Settings:AddLeftGroupbox('Menu')
+Settings:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightShift', NoUI = true, Text = 'Menu keybind' })
+Library.ToggleKeybind = Options.MenuKeybind
 
-local FlightGroup = Tabs.Movement:AddRightGroupbox('Flight & Strafe')
-FlightGroup:AddToggle('Flight', { Text = 'Flight', Default = false })
-FlightGroup:AddSlider('FlightSpeed', { Text = 'Flight Speed', Default = 100, Min = 20, Max = 500, Rounding = 0 })
-FlightGroup:AddToggle('AutoStrafe', { Text = 'Auto Strafe', Default = false })
-FlightGroup:AddSlider('AutoStrafeSpeed', { Text = 'Auto Strafe Speed', Default = 50, Min = 10, Max = 150, Rounding = 0 })
+ThemeManager:SetLibrary(Library)
+SaveManager:SetLibrary(Library)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
+ThemeManager:SetFolder('Eclipse')
+SaveManager:SetFolder('Eclipse/configs')
+SaveManager:BuildConfigSection(Tabs.Settings)
+ThemeManager:ApplyToTab(Tabs.Settings)
+SaveManager:LoadAutoloadConfig()
 
-local JumpGroup = Tabs.Movement:AddRightGroupbox('Jump')
-JumpGroup:AddToggle('InfDoubleJumps', { Text = 'Infinite Double Jumps', Default = false })
-JumpGroup:AddToggle('LongJump', { Text = 'Long Jump', Default = false })
-JumpGroup:AddDropdown('LongJumpMode', { Values = {'Under Feet', 'Look Direction'}, Default = 'Under Feet', Text = 'Long Jump Mode' })
-
-local AutoQueue = Tabs.Automation:AddLeftGroupbox('Auto Queue')
-AutoQueue:AddToggle('AutoQueueEnabled', { Text = 'Enabled', Default = false })
-AutoQueue:AddDropdown('QueueMode', { Values = {'1v1', '2v2', '3v3', '4v4', '5v5'}, Default = '1v1', Text = 'Queue' })
-
-local AutoBan = Tabs.Automation:AddRightGroupbox('Auto Weapon Ban')
-AutoBan:AddToggle('AutoBanEnabled', { Text = 'Enabled', Default = false })
-AutoBan:AddDropdown('FirstBan', { Values = {'None', 'Primary', 'Secondary', 'Melee'}, Default = 'None', Text = 'First Ban Choices' })
-AutoBan:AddDropdown('SecondBan', { Values = {'None', 'Primary', 'Secondary', 'Melee'}, Default = 'None', Text = 'Second Ban Choices' })
-
-local AutoMap = Tabs.Automation:AddLeftGroupbox('Auto Map Vote')
-AutoMap:AddToggle('AutoMapEnabled', { Text = 'Enabled', Default = false })
-AutoMap:AddDropdown('MapsToVote', { Values = {'None', 'Random'}, Default = 'None', Text = 'Maps to Vote For' })
-
-local AutoLoadout = Tabs.Automation:AddLeftGroupbox('Auto Loadout')
-AutoLoadout:AddToggle('AutoLoadoutEnabled', { Text = 'Enabled', Default = false })
-AutoLoadout:AddToggle('MapSpecificLoadout', { Text = 'Use Map-Specific Loadouts', Default = false })
-AutoLoadout:AddDropdown('LoadoutMap', { Values = {'Default', 'Arena', 'Duel'}, Default = 'Default', Text = 'Map' })
-AutoLoadout:AddDropdown('LoadoutPriority', { Values = {'1', '2', '3'}, Default = '1', Text = 'Loadout Priority (1 highest)' })
-
-local LoadoutSlots = Tabs.Automation:AddRightGroupbox('Loadout Slots')
-LoadoutSlots:AddDropdown('PrimarySlot', { Values = {'Assault Rifle', 'Sniper', 'Shotgun'}, Default = 'Assault Rifle', Text = 'Primary' })
-LoadoutSlots:AddDropdown('SecondarySlot', { Values = {'Handgun', 'Dual Pistols'}, Default = 'Handgun', Text = 'Secondary' })
-LoadoutSlots:AddDropdown('MeleeSlot', { Values = {'Fists', 'Sword', 'Knife'}, Default = 'Fists', Text = 'Melee' })
-LoadoutSlots:AddDropdown('UtilitySlot', { Values = {'Grenade', 'Flashbang', 'Smoke'}, Default = 'Grenade', Text = 'Utility' })
-
-local AutoPickup = Tabs.Automation:AddLeftGroupbox('Auto Pickup')
-AutoPickup:AddToggle('AutoPickupEnabled', { Text = 'Enabled', Default = false })
-AutoPickup:AddDropdown('PickupTypes', { Values = {'Ammo', 'Health', 'Both'}, Default = 'Both', Text = 'Pickup Types' })
-
-local Tripmines = Tabs.Automation:AddRightGroupbox('Subspace Tripmines')
-Tripmines:AddToggle('TripmineAuto', { Text = 'Auto Trigger', Default = false })
-Tripmines:AddToggle('TripmineTeam', { Text = 'Team Trigger', Default = false })
-
-local AutoRespawn = Tabs.Automation:AddRightGroupbox('Auto Respawn')
-AutoRespawn:AddToggle('AutoRespawnEnabled', { Text = 'Enabled', Default = false })
-
-local AntiKatana = Tabs.Automation:AddLeftGroupbox('Anti Katana')
-AntiKatana:AddToggle('AntiKatanaEnabled', { Text = 'Enabled', Default = false })
-
-local ModDetector = Tabs.Automation:AddRightGroupbox('Moderator Detector')
-ModDetector:AddToggle('ModDetectorEnabled', { Text = 'Enabled', Default = false })
-ModDetector:AddDropdown('ModResponses', { Values = {'Notify', 'Kick', 'Crash'}, Default = 'Notify', Text = 'Moderator Responses' })
-ModDetector:AddDropdown('ModFriends', { Values = {'None', 'Notify', 'Kick'}, Default = 'None', Text = 'Mod Friends' })
-
-local HackerDetector = Tabs.Automation:AddLeftGroupbox('Hacker Detector')
-HackerDetector:AddToggle('HackerDetectorEnabled', { Text = 'Enabled', Default = false })
-HackerDetector:AddToggle('HackerNotify', { Text = 'Notify', Default = true })
-
--- =====================================================================
--- AIMBOT / SILENT AIM / RAGEBOT LOGIC
--- =====================================================================
-local function GetTarget(useFOV, targetPart, teamCheck, wallCheck)
-    local closestTarget, shortestDistance = nil, useFOV
+-- ==========================================
+-- CORE LOGIC
+-- ==========================================
+local function GetTarget(fovSize, targetPart, teamCheck, wallCheck)
+    local closestTarget, shortestDistance = nil, fovSize / 2
     local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
     local rp = RaycastParams.new()
     rp.FilterType = Enum.RaycastFilterType.Exclude
@@ -386,7 +257,6 @@ local function GetTarget(useFOV, targetPart, teamCheck, wallCheck)
     return closestTarget
 end
 
--- Aimbot Loop
 local function aimSpring(targetPos, dt)
     if not SpringState.initialized then
         SpringState.pos = Camera.CFrame.Position + Camera.CFrame.LookVector; SpringState.vel = Vector3.zero; SpringState.initialized = true
@@ -409,7 +279,7 @@ RunService:BindToRenderStep("EclipseAim", Enum.RenderPriority.Camera.Value + 1, 
     lastFrameTime = now
 
     FOVCircle.Position = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-    FOVCircle.Radius = O('FOVSize') / 2
+    FOVCircle.Radius = O('AimbotFOV') / 2
     FOVCircle.Visible = T('Aimbot') and T('ShowFOVCircle')
 
     if T('Aimbot') then
@@ -418,9 +288,9 @@ RunService:BindToRenderStep("EclipseAim", Enum.RenderPriority.Camera.Value + 1, 
             if myHRP and myHRP.AssemblyLinearVelocity.Magnitude > 2 then return end
         end
         
-        local target = GetTarget(O('FOVSize')/2, O('HitPart') == "Random" and "Head" or O('HitPart'), T('TeamCheck'), T('WallCheck'))
+        local target = GetTarget(O('AimbotFOV'), O('HitPart'), T('TeamCheck'), T('WallCheck'))
         if target and target.Character then
-            local targetPart = target.Character:FindFirstChild(O('HitPart') == "Random" and "Head" or O('HitPart')) or target.Character:FindFirstChild("HumanoidRootPart")
+            local targetPart = target.Character:FindFirstChild(O('HitPart')) or target.Character:FindFirstChild("HumanoidRootPart")
             if targetPart then
                 if O('AimbotMode') == "Spring" then
                     Camera.CFrame = aimSpring(targetPart.Position, dt)
@@ -439,7 +309,7 @@ local lastFire = 0
 RunService.Heartbeat:Connect(function()
     if not T('RagebotEnabled') then return end
     
-    local target = GetTarget(O('FOVSize')/2, "Head", T('TeamCheck'), T('WallCheck'))
+    local target = GetTarget(O('AimbotFOV'), "Head", T('TeamCheck'), T('WallCheck'))
     if target and target.Character and target.Character:FindFirstChild("HumanoidRootPart") then
         local hrp = target.Character.HumanoidRootPart
         local myChar = LocalPlayer.Character
@@ -462,26 +332,9 @@ RunService.Heartbeat:Connect(function()
         end
     end
 end)
--- =====================================================================
--- SETTINGS
--- =====================================================================
-local Settings = Tabs.Settings:AddLeftGroupbox('Menu')
-Settings:AddLabel('Menu bind'):AddKeyPicker('MenuKeybind', { Default = 'RightShift', NoUI = true, Text = 'Menu keybind' })
-Library.ToggleKeybind = Options.MenuKeybind
-
-ThemeManager:SetLibrary(Library)
-SaveManager:SetLibrary(Library)
-SaveManager:IgnoreThemeSettings()
-SaveManager:SetIgnoreIndexes({ 'MenuKeybind' })
-ThemeManager:SetFolder('Eclipse')
-SaveManager:SetFolder('Eclipse/configs')
-SaveManager:BuildConfigSection(Tabs.Settings)
-ThemeManager:ApplyToTab(Tabs.Settings)
-SaveManager:LoadAutoloadConfig()
-
--- =====================================================================
--- SILENT AIM LOGIC
--- =====================================================================
+-- ==========================================
+-- SILENT AIM HOOK
+-- ==========================================
 local function safeRequire(path, timeout)
     local start = tick()
     while tick() - start < (timeout or 5) do
@@ -496,7 +349,6 @@ local Rivals = { Ready = false }
 task.spawn(function()
     Rivals.Util = safeRequire(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("Utility"), 10)
     Rivals.Fighter = safeRequire(LocalPlayer.PlayerScripts:WaitForChild("Controllers"):WaitForChild("FighterController"), 10)
-    Rivals.Enums = safeRequire(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("EnumLibrary"), 10)
     Rivals.Gun = safeRequire(LocalPlayer.PlayerScripts:WaitForChild("Modules"):WaitForChild("ItemTypes"):WaitForChild("Gun"), 10)
     Rivals.Ready = (Rivals.Util ~= nil and Rivals.Fighter ~= nil)
 end)
@@ -521,9 +373,9 @@ function hookGunModule()
             local camData = results[3]
             if not camData or typeof(camData) ~= "table" then return end
             
-            local target = GetTarget(O('FOVSize')/2, O('HitPart') == "Random" and "Head" or O('HitPart'), T('TeamCheck'), T('WallCheck'))
+            local target = GetTarget(O('SilentAimFOV'), O('SilentHitPart'), T('SilentTeamCheck'), T('SilentWallCheck'))
             if target and target.Character then
-                local hitPart = target.Character:FindFirstChild("HitboxHead") or target.Character:FindFirstChild("Head") or target.Character:FindFirstChild("HumanoidRootPart")
+                local hitPart = target.Character:FindFirstChild(O('SilentHitPart')) or target.Character:FindFirstChild("HumanoidRootPart")
                 if hitPart then
                     if math.random(1, 100) <= O('SilentAimHitChance') then
                         local eyeCF = lookCF(Camera.CFrame.Position, hitPart.Position)
@@ -548,9 +400,9 @@ task.spawn(function()
     if Rivals.Ready and Rivals.Gun then hookGunModule() end
 end)
 
--- =====================================================================
+-- ==========================================
 -- SKIN CHANGER LOGIC
--- =====================================================================
+-- ==========================================
 task.spawn(function()
     local rs = game:GetService("ReplicatedStorage")
     local http = game:GetService("HttpService")
